@@ -45,7 +45,8 @@ def create_charge_stmt():
             cost_serve FLOAT NULL,
             cost_total FLOAT NULL,
             
-            generate_time TEXT NULL
+            generate_time TEXT NULL,
+            finish TEXT NOT NULL
         );
 
     """)

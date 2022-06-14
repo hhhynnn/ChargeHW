@@ -30,6 +30,18 @@ def seconds_to_HMS(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
 
 
+def get_cost(mode, start='2022-6-14 19:00:00', end='2022-6-15 03:00:00'):
+    """
+    给定起止时间, 计算收费情况
+
+    :return cost_serve, cost_charge
+    """
+    # todo 计算收费结果
+    cost_serve = 0.0
+    cost_charge = 0.0
+    return cost_serve, cost_charge
+
+
 ############################################################
 # 详单类
 ############################################################
@@ -43,9 +55,9 @@ class charge_statement:
         self.reserve = 0  # 预计充电电量
 
         self.pileid = 0  # 提供充电的充电桩编号
-        self.time_start = 0  # 启动时间
+        self.time_start = 'xxxx-xx-xx 00:00:00'  # 启动时间
 
-        self.time_end = 0  # 结束时间
+        self.time_end = 'xxxx-xx-xx 00:00:00'  # 结束时间
         self.time_total = '00:00:00'  # 总时间
         self.consume = 0  # 充电电量
         self.cost_charge = 0  # 充电费用
@@ -53,6 +65,7 @@ class charge_statement:
         self.cost_total = 0  # 总费用
 
         self.generate_time = 0  # 详单生成时间
+        self.finish = 'False'
 
     @staticmethod
     def new_charge_statement(wait):
@@ -72,8 +85,8 @@ class charge_statement:
         charge_stmt.consume = 0.0  # 充电电量
         charge_stmt.cost_charge = 0.0  # 充电费用
         charge_stmt.cost_serve = 0.0  # 服务费用
-        charge_stmt.cost_total = 0.0  # 总费用
         charge_stmt.generate_time = timestamp()  # 详单生成时间
+        charge_stmt.finish = 'False'
         return charge_stmt
 
     def __str__(self):
@@ -87,9 +100,10 @@ class charge_statement:
               "time_total": self.time_total,
               "consume": self.consume,
               "const_charge": self.cost_charge,
-              "cost_serve": self.cost_charge,
-              "cost_total": self.cost_total,
-              "generate_time": self.generate_time}
+              "cost_serve": self.cost_serve,
+              "cost_total": self.cost_charge + self.cost_serve,
+              "generate_time": self.generate_time,
+              "finish": self.finish}
         return json.dumps(dd, ensure_ascii=False)
 
     def __repr__(self):
@@ -136,8 +150,9 @@ class charge_statement:
                 '{self.consume}',
                 '{self.cost_charge}',
                 '{self.cost_serve}',
-                '{self.cost_total}',
-                '{self.generate_time}'
+                '{self.cost_serve + self.cost_charge}',
+                '{self.generate_time}',
+                '{self.finish}'
             )
             """)
 
@@ -154,8 +169,9 @@ class charge_statement:
                 consume='{self.consume}',
                 cost_charge='{self.cost_charge}',
                 cost_serve='{self.cost_serve}',
-                cost_total='{self.cost_total}',
-                generate_time='{self.generate_time}'
+                cost_total='{self.cost_charge + self.cost_serve}',
+                generate_time='{self.generate_time}',
+                finish = '{self.finish}'
             where csid = '{self.csid}'
             """)
 
@@ -188,8 +204,8 @@ class charge_pile:
         self.charge_cnt = 0  # 充电次数
         self.charge_time = 0  # 累计充电时长
         self.charge_capacity = 0  # 累计充电量
-        self.cost_of_charge = 0  # 充电费
-        self.cost_of_serve = 0  # 服务费
+        self.cost_charge = 0  # 充电费
+        self.cost_serve = 0  # 服务费
         self.cost_all = 0  # 总费用
 
 
@@ -375,6 +391,7 @@ class scheduler:
             return avl_pileid
 
         def estimate_wait_time(mode):
+            """计算等待时间"""
             wait_times = {}
             for pileid, queue in self.queue[mode].items():
                 wait_time = 0
@@ -410,8 +427,6 @@ class scheduler:
         def update_queue():
             """
             充电队列随着时间推移，修改相关信息;
-
-            一定要保证两次更新间隔足够小，不会导致一个队列一次性结束2个及以上的充电
             """
             timediff = int(now - last)  # 时间比较单位用s, 并且要求是整数比较
             for mode in ['F', 'T']:
@@ -434,7 +449,8 @@ class scheduler:
                             stmt.time_total = seconds_to_HMS(stmt.reserve / CHG_SPEED[mode] * 3600)
                             stmt.time_end = timestamp_add(stmt.time_start, HMS_to_seconds(stmt.time_total))
                             stmt.consume = stmt.reserve
-                            # todo :结算充电费用和服务费用
+                            stmt.cost_serve, stmt.cost_charge = get_cost(stmt.time_start, stmt.time_end)
+                            stmt.finish = 'True'
                             stmt.save()
                             # 2. 更新队列
                             queue.pop(0)
@@ -447,9 +463,10 @@ class scheduler:
                             timeline += need_power
                         else:
                             # 只充一半
-                            charger.already = charger.already + CHG_SPEED[mode] * [(timediff - timeline) / 3600]
+                            charger.already = charger.already + CHG_SPEED[mode] * ((timediff - timeline) / 3600)
                             stmt.consume = charger.already
-                            # todo: 结算充电费用
+                            virtual_time_end = timestamp_add(stmt.time_start, stmt.consume / CHG_SPEED[mode] * 3600)
+                            stmt.cost_serve, stmt.cost_charge = get_cost(mode, stmt.time_start, virtual_time_end)
                             stmt.save()
                             timeline = timediff
 
@@ -459,30 +476,27 @@ class scheduler:
         call_wait()
         update_queue()
 
+    ##############################
+    # 用户结束充电
+    ##############################
+    def user_end_charge(self, waitid):
+        """只有正在充电的用户才能调用这个函数, 调用前一定要先执行refresh_system,验证可行性"""
+        pass
 
-##############################
-# 用户结束充电
-#
-##############################
-def user_end_charge(self, waitid):
-    pass
+    ##############################
+    # 暂停使用某个充电桩
+    # 功能: 正在充电的车辆停止计费, 本次充电过程详单记录完成
+    #     ① 优先级调度: 暂停等待区叫号, 优先给故障队列的车进行调度
+    #     ② 时间顺序调度: 充电区中未充电的车辆合并为一组
+    ##############################
+    def stop_charge_pile(self):
+        """ 暂停使用某个充电桩 """
+        pass
 
-
-##############################
-# 暂停使用某个充电桩
-# 功能: 正在充电的车辆停止计费, 本次充电过程详单记录完成
-#     ① 优先级调度: 暂停等待区叫号, 优先给故障队列的车进行调度
-#     ② 时间顺序调度: 充电区中未充电的车辆合并为一组
-##############################
-def stop_charge_pile(self):
-    """ 暂停使用某个充电桩 """
-    pass
-
-
-##############################
-# 恢复使用某个充电桩
-# 功能: 同类型的充电桩混洗，按时间重新调度
-##############################
-def start_charge_pile(self):
-    """恢复使用某个充电桩"""
-    pass
+    ##############################
+    # 恢复使用某个充电桩
+    # 功能: 同类型的充电桩混洗，按时间重新调度
+    ##############################
+    def start_charge_pile(self):
+        """恢复使用某个充电桩"""
+        pass
