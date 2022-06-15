@@ -6,7 +6,9 @@ import time
 import datetime
 
 
-def timestamp(now=time.time()):
+def timestamp(now: time = None):
+    if now is None:
+        now = time.time()
     return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
 
 
@@ -30,15 +32,39 @@ def seconds_to_HMS(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
 
 
-def get_cost(mode, start='2022-6-14 19:00:00', end='2022-6-15 03:00:00'):
-    """
-    给定起止时间, 计算收费情况
+def get_cost(start: str, end: str, mode: str) -> [float, float]:
+    '''
+    计算收费结果
 
-    :return cost_serve, cost_charge
-    """
-    # todo 计算收费结果
-    cost_serve = 0.0
-    cost_charge = 0.0
+    :param start:开始时间，e.g:'2022-6-14 19:00:00'
+    :param end: 结束时间,e.g:'2022-6-15 03:00:00'
+    :param mode: 充电模式，{'T','F'}
+
+    :return:服务费cost_serve，电费cost_charge
+    '''
+    from datetime import datetime, timedelta
+    start = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
+    end = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
+    delta = end - start
+
+    charge = CHG_SPEED[mode] * delta.total_seconds() / 3600
+    cost_serve = 0.8 * charge
+
+    cost_charge_extract_mode = 0
+    while delta.total_seconds() > 0:
+        hour = start.hour + start.minute / 60 + start.second / 3600
+        for (op, ed), status in CHG_ZONE:
+            if op - 1e-10 < hour < ed:
+                if (ed - hour) * 3600 <= delta.total_seconds():
+                    cost_charge_extract_mode += (ed - hour) * CHG_RATE[status]
+                    start += timedelta(hours=ed - hour)
+                    delta -= timedelta(hours=ed - hour)
+                    hour = ed
+                else:
+                    cost_charge_extract_mode += delta.total_seconds() / 3600 * CHG_RATE[status]
+                    delta -= delta
+                    break
+    cost_charge = cost_charge_extract_mode * CHG_SPEED[mode]
     return cost_serve, cost_charge
 
 
@@ -89,6 +115,28 @@ class charge_statement:
         charge_stmt.finish = 'False'
         return charge_stmt
 
+    def start_chg_at(self, time_start):
+        """
+        传入开始充电时间, 更新表单
+        """
+        self.time_start = time_start
+
+    def cont_chg_at(self, time_cont):
+        """传入正在充电的某个时间点, 更新表单"""
+        start_sec = timestamp_to_seconds(self.time_start)
+        cont_sec = timestamp_to_seconds(time_cont)
+        delta_sec = cont_sec - start_sec
+        self.time_total = seconds_to_HMS(delta_sec)
+        self.consume = CHG_SPEED[self.mode] * (delta_sec / 3600)
+        self.cost_serve, self.cost_charge = get_cost(self.time_start, time_cont, self.mode)
+        self.generate_time = time_cont
+
+    def end_chg_at(self, time_end):
+        """传入结束充电的某个时间点, 更新表单"""
+        self.cont_chg_at(time_end)
+        self.time_end = time_end
+        self.finish = 'True'
+
     def __str__(self):
         dd = {"csid": self.csid,
               "uid": self.uid,
@@ -99,7 +147,7 @@ class charge_statement:
               "time_end": self.time_end,
               "time_total": self.time_total,
               "consume": self.consume,
-              "const_charge": self.cost_charge,
+              "cost_charge": self.cost_charge,
               "cost_serve": self.cost_serve,
               "cost_total": self.cost_charge + self.cost_serve,
               "generate_time": self.generate_time,
@@ -249,8 +297,8 @@ class wait_info:
         return {"uid": self.uid, "total": self.total, "reserve": self.reserve}
 
     def __str__(self):
-        dd = {"uid": self.uid, "mode": self.mode, "reserve": self.reserve, "total": self.total,
-              "waitid": self.waitid, "state": self.state, "pileid": self.pileid}
+        dd = {"uid": self.uid, "waitid": self.waitid, "mode": self.mode, "state": self.state,
+              "reserve": self.reserve, "already": self.already, "total": self.total, "pileid": self.pileid, }
         return json.dumps(dd, ensure_ascii=False)
 
     def __repr__(self):
@@ -315,7 +363,7 @@ class scheduler:
         try:
             wait = self.wait_infos[waitid]
         except KeyError as e:
-            print('waitid not exists')
+            print('[error] waitid not exists')
             raise e
 
         # 修改 wait
@@ -353,7 +401,7 @@ class scheduler:
         try:
             wait = self.wait_infos[waitid]
         except KeyError as e:
-            print('waitid not exists')
+            print('[error] waitid not exists')
             return
         # 从队列中删除 wait
         if wait.state == 'p':
@@ -378,7 +426,7 @@ class scheduler:
     def refresh_system(self):
         """更新排队队列"""
         # 更新时间
-        last = self.last_update_time
+        pre = self.last_update_time
         now = time.time()
         self.last_update_time = now
 
@@ -421,14 +469,14 @@ class scheduler:
                     if len(self.queue[mode][target_pileid]) == 1:
                         # 进去就开始充电
                         wait.state = 'ing'
-                        stmt.time_start = timestamp(now)
+                        stmt.start_chg_at(timestamp(now))
                     stmt.save()
 
         def update_queue():
             """
             充电队列随着时间推移，修改相关信息;
             """
-            timediff = int(now - last)  # 时间比较单位用s, 并且要求是整数比较
+            timediff = int(now - pre)  # 时间比较单位用s, 并且要求是整数比较
             for mode in ['F', 'T']:
                 for pileid, queue in self.queue[mode].items():
                     if len(queue) == 0:
@@ -442,46 +490,67 @@ class scheduler:
                         """还需要的充电量, 单位“度”"""
                         need_time = int(need_power / CHG_SPEED[mode] * 3600)
                         if need_time < timediff - timeline:
+                            timeline += need_time
                             # 直接充满
                             # 1. 修改 wait_info 和 charge_statement 对象信息
                             charger.already = charger.reserve
                             charger.state = 'end'
-                            stmt.time_total = seconds_to_HMS(stmt.reserve / CHG_SPEED[mode] * 3600)
-                            stmt.time_end = timestamp_add(stmt.time_start, HMS_to_seconds(stmt.time_total))
-                            stmt.consume = stmt.reserve
-                            stmt.cost_serve, stmt.cost_charge = get_cost(stmt.time_start, stmt.time_end)
-                            stmt.finish = 'True'
+                            time_cur = timestamp(pre + timeline)
+                            stmt.end_chg_at(time_cur)
                             stmt.save()
                             # 2. 更新队列
                             queue.pop(0)
                             if len(queue) > 0:
                                 newer_charger = queue[0]
-                                newer_stmt = self.wait_to_stmt(newer_charger)
                                 newer_charger.state = 'ing'
-                                newer_stmt.time_start = timestamp(last + timeline)
+                                newer_stmt = self.wait_to_stmt(newer_charger)
+                                newer_stmt.start_chg_at(time_cur)
                                 newer_stmt.save()
-                            timeline += need_power
+                            timeline += need_time
                         else:
                             # 只充一半
-                            charger.already = charger.already + CHG_SPEED[mode] * ((timediff - timeline) / 3600)
-                            stmt.consume = charger.already
-                            virtual_time_end = timestamp_add(stmt.time_start, stmt.consume / CHG_SPEED[mode] * 3600)
-                            stmt.cost_serve, stmt.cost_charge = get_cost(mode, stmt.time_start, virtual_time_end)
-                            stmt.save()
                             timeline = timediff
+                            stmt.cont_chg_at(timestamp(now))
+                            charger.already = (HMS_to_seconds(stmt.time_total) / 3600) * CHG_SPEED[charger.mode]
+                            stmt.save()
 
         # 更新队列
         update_queue()
         # 叫号
         call_wait()
-        update_queue()
+        # update_queue()
 
     ##############################
     # 用户结束充电
     ##############################
     def user_end_charge(self, waitid):
-        """只有正在充电的用户才能调用这个函数, 调用前一定要先执行refresh_system,验证可行性"""
-        pass
+        """只有正在充电的用户才能调用这个函数(取消充电请求使用 cancel_charge_request)"""
+        self.refresh_system()
+        wait: wait_info = self.wait_infos[waitid]
+        stmt = self.wait_to_stmt(wait)
+        mode = wait.mode
+        # 0. 验证用户是否正在充电
+        if wait.state != 'ing':
+            return f'[error] wait.state == {wait.state} in user_end_charge'
+        # 1. 修改该wait的详单信息
+        wait.state = 'end'
+        stmt.end_chg_at(timestamp(self.last_update_time))
+        wait.already = (HMS_to_seconds(stmt.time_total) / 3600) * CHG_SPEED[wait.mode]
+        stmt.finish = 'True'
+        stmt.save()
+
+        # 2. 更新队列（下一个车进行充电）
+        queue = self.queue[wait.mode][wait.pileid]
+        queue.pop(0)
+        if len(queue) != 0:
+            new_wait: wait_info = queue[0]
+            new_wait.state = 'ing'
+            new_stmt = self.wait_to_stmt(new_wait)
+            new_stmt.start_chg_at(self.last_update_time)
+            new_stmt.save()
+        # 3. 后车进入
+        self.refresh_system()
+        return "success"
 
     ##############################
     # 暂停使用某个充电桩
