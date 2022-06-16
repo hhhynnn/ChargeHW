@@ -73,25 +73,26 @@ def get_cost(start: str, end: str, mode: str) -> [float, float]:
 ############################################################
 class charge_statement:
 
-    def __init__(self):
-        self.csid = 0  # 详单编号
-        self.uid = 0  # 用户id
-        self.mode = ''  # 充电类型
+    def __init__(self, csid=0, uid=0, mode='', reserve=0, pileid='', time_start='xxxx-xx-xx 00:00:00',
+                 time_end='xxx-xx-xx 00:00:00', time_total='00:00:00', consume=0, cost_charge=0, cost_serve=0,
+                 generate_time='xxxx-xx-xx 00:00:00', finish='False'):
+        self.csid = csid  # 详单编号
+        self.uid = uid  # 用户id
+        self.mode = mode  # 充电类型
         """可选F/T"""
-        self.reserve = 0  # 预计充电电量
+        self.reserve = reserve  # 预计充电电量
 
-        self.pileid = 0  # 提供充电的充电桩编号
-        self.time_start = 'xxxx-xx-xx 00:00:00'  # 启动时间
+        self.pileid = pileid  # 提供充电的充电桩编号
+        self.time_start = time_start  # 启动时间
 
-        self.time_end = 'xxxx-xx-xx 00:00:00'  # 结束时间
-        self.time_total = '00:00:00'  # 总时间
-        self.consume = 0  # 充电电量
-        self.cost_charge = 0  # 充电费用
-        self.cost_serve = 0  # 服务费用
-        self.cost_total = 0  # 总费用
+        self.time_end = time_end  # 结束时间
+        self.time_total = time_total  # 总时间
+        self.consume = consume  # 充电电量
+        self.cost_charge = cost_charge  # 充电费用
+        self.cost_serve = cost_serve  # 服务费用
 
-        self.generate_time = 0  # 详单生成时间
-        self.finish = 'False'
+        self.generate_time = generate_time  # 详单生成时间
+        self.finish = finish
 
     @staticmethod
     def new_charge_statement(wait):
@@ -137,24 +138,29 @@ class charge_statement:
         self.time_end = time_end
         self.finish = 'True'
 
+    def toDict(self):
+        return {"csid": self.csid,
+                "uid": self.uid,
+                "mode": self.mode,
+                "reserve": self.reserve,
+                "pileid": self.pileid,
+                "time_start": self.time_start,
+                "time_end": self.time_end,
+                "time_total": self.time_total,
+                "consume": self.consume,
+                "cost_charge": self.cost_charge,
+                "cost_serve": self.cost_serve,
+                "cost_total": self.cost_charge + self.cost_serve,
+                "generate_time": self.generate_time,
+                "finish": self.finish}
+
     def __str__(self):
-        dd = {"csid": self.csid,
-              "uid": self.uid,
-              "mode": self.mode,
-              "reserve": self.reserve,
-              "pileid": self.pileid,
-              "time_start": self.time_start,
-              "time_end": self.time_end,
-              "time_total": self.time_total,
-              "consume": self.consume,
-              "cost_charge": self.cost_charge,
-              "cost_serve": self.cost_serve,
-              "cost_total": self.cost_charge + self.cost_serve,
-              "generate_time": self.generate_time,
-              "finish": self.finish}
-        return json.dumps(dd, ensure_ascii=False)
+        return json.dumps(self.toDict(), ensure_ascii=False)
 
     def __repr__(self):
+        return self.__str__()
+
+    def toJSON(self):
         return self.__str__()
 
     @staticmethod
@@ -198,7 +204,6 @@ class charge_statement:
                 '{self.consume}',
                 '{self.cost_charge}',
                 '{self.cost_serve}',
-                '{self.cost_serve + self.cost_charge}',
                 '{self.generate_time}',
                 '{self.finish}'
             )
@@ -215,9 +220,8 @@ class charge_statement:
                 time_end='{self.time_end}',
                 time_total='{self.time_total}',
                 consume='{self.consume}',
-                cost_charge='{self.cost_charge}',
-                cost_serve='{self.cost_serve}',
-                cost_total='{self.cost_charge + self.cost_serve}',
+                cost_charge={self.cost_charge},
+                cost_serve={self.cost_serve},
                 generate_time='{self.generate_time}',
                 finish = '{self.finish}'
             where csid = '{self.csid}'
@@ -244,17 +248,40 @@ class charge_statement:
 
 ############################################################
 # 充电桩类
-# 编码提示
+# 编码提示 这个类没有用
 ############################################################
 class charge_pile:
-    def __init__(self):
-        self.pile_id = 0
-        self.charge_cnt = 0  # 充电次数
-        self.charge_time = 0  # 累计充电时长
-        self.charge_capacity = 0  # 累计充电量
-        self.cost_charge = 0  # 充电费
-        self.cost_serve = 0  # 服务费
-        self.cost_all = 0  # 总费用
+    def __init__(self, pileid, charge_cnt=0, charge_time=0, charge_capacity=0, cost_charge=0, cost_serve=0, state='on'):
+        self.pileid = pileid
+        self.charge_cnt = charge_cnt  # 充电次数
+        self.charge_time = charge_time  # 累计充电时长
+        self.charge_capacity = charge_capacity  # 累计充电量
+        self.cost_charge = cost_charge  # 充电费
+        self.cost_serve = cost_serve  # 服务费
+        self.state = state
+
+    def toDict(self):
+        return {"pileid": self.pileid, "charge_cnt": self.cost_charge, "charge_time": self.charge_time,
+                "charge_capacity": self.charge_capacity, "cost_charge": self.cost_charge,
+                "cost_serve": self.cost_serve, "state": self.state}
+
+    def __str__(self):
+        return json.dumps(self.toDict(), ensure_ascii=False)
+
+    def __repr__(self):
+        return self.__str__()
+
+    def save(self):
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        keys = self.toDict()[1:] + self.toDict()[0]
+        c.execute("""
+            update charge_pile
+            set charge_cnt ={},charge_time = {},charge_capacity={},cost_charge={},cost_serve = {},state={}
+            where pileid = {}
+        """.format(*keys))
+        conn.commit()
+        conn.close()
 
 
 ############################################################
@@ -325,6 +352,19 @@ class scheduler:
             for pileid in PILEID[mode]:
                 self.queue[mode][pileid] = []
 
+        # 初始化 self.charge_stmts 的值
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(""" select * from charge_stmt """)
+        stmts = c.fetchall()
+        for stmt_tuple in stmts:
+            csid = stmt_tuple[0]
+            stmt = charge_statement(*stmt_tuple)
+            self.charge_stmts[csid] = stmt
+
+        conn.commit()
+        conn.close()
+
     ##############################
     # 工具函数
     ##############################
@@ -342,9 +382,9 @@ class scheduler:
     #      生成一个等待wait,保存到里
     #      更新 waitid_to_csid 映射关系
     ##############################
-    def new_charge_request(self, uid, mode, reserve, total):
+    def new_charge_request(self, uid, mode, reserve, capacity):
         """新增充电请求 """
-        wait = wait_info.new_wait_info(uid, mode, reserve, total)
+        wait = wait_info.new_wait_info(uid, mode, reserve, capacity)
         charge_stmt = charge_statement.new_charge_statement(wait)
         charge_stmt.save()  # 保存到数据库
         self.charge_stmts[charge_stmt.csid] = charge_stmt
@@ -410,11 +450,22 @@ class scheduler:
             pileid = wait.pileid  # 充电桩id
             self.queue[wait.mode][pileid].remove(wait)
         else:
-            print('[Error] wait.state is wrong at "cancel_charge_request"')
+            if wait.state == 'ing':
+                print('[Error] this wait is charging now, can\'t cancel')
+                return 1
+            elif wait.state == 'end':
+                print('[Error] this wait is end now, can\'t cancel')
+                return 2
+            else:
+                print('[Error] wait.state is wrong in cancel_charge_request')
+                return 3  # 错误码
 
         # 删除 charge_stmt
         stmt = self.wait_to_stmt(wait)
-        stmt.delete()
+        csid = stmt.csid
+        self.charge_stmts.pop(csid)  # 从内存删除
+        stmt.delete()  # 从数据库删除
+        return 0
 
     ##############################
     # 更新排队队列
@@ -546,7 +597,7 @@ class scheduler:
             new_wait: wait_info = queue[0]
             new_wait.state = 'ing'
             new_stmt = self.wait_to_stmt(new_wait)
-            new_stmt.start_chg_at(self.last_update_time)
+            new_stmt.start_chg_at(timestamp(self.last_update_time))
             new_stmt.save()
         # 3. 后车进入
         self.refresh_system()
@@ -619,3 +670,175 @@ class scheduler:
             stmt.pileid = None
             self.queue_wait[mode].insert(0, wait)
         self.refresh_system()
+
+
+############################################################
+# 用户类
+############################################################
+class user_info:
+    def __init__(self, uid, passwd, capacity, balance=0):
+        self.uid = uid
+        self.passwd = passwd
+        self.capacity = capacity
+        self.balance = balance
+        self.state = 'off'
+        """登陆状态, 可选 on/off"""
+        self.cur_wait: wait_info = None
+
+    def add_balance(self, money):
+        self.balance += money
+        self.save()
+
+    def save(self):
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(f"""
+            select * from user
+            where uid = '{self.uid}'
+        """)
+        result = c.fetchall()
+        if not result:
+            c.execute(f"""
+                insert into user (uid, passwd, balance, capacity) values
+                ('{self.uid}','{self.passwd}','{self.balance}','{self.capacity}')
+            """)
+        else:
+            c.execute(f"""
+                update user
+                set passwd = '{self.passwd}',
+                    balance = {self.balance},
+                    capacity = {self.capacity}
+                where uid = '{self.uid}'
+            """)
+        conn.commit()
+        conn.close()
+
+
+############################################################
+# 用户管理器
+# 功能: 1. 同步用户信息到数据库
+#      2. 支持 uid => waitid 转换, 查询用户当前的 waitid
+#      3. 支持 uid => stmts 转换
+# 注: 唯一负责 user 和 user_to_charge_stmt 的更新
+############################################################
+class user_controller:
+    def __init__(self):
+        self.users = {}
+        self.uid_to_csid = defaultdict(list)
+        """ uid 到 csid 的映射,在用户发出充电申请的时候更新, 即 user_new_charge """
+        self.uid_to_waitid = {}
+        """uid 到 wait 的映射. 在user_new_charge, user_modify_charge事件中更新
+        在user_cancel_charge, user_end_charge中删除
+        在refresh_system时也可能被删除"""
+
+        # 初始化 self.users 的值
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("""select * from user""")
+        users = c.fetchall()
+
+        for user in users:
+            uid = user[1]
+            self.users[uid] = user_info(*user[1:5])
+
+        # 初始化 self.uid_to_csid 的值
+        for uid in self.users:
+            c.execute(f"""
+            select csid from user_to_charge_stmt
+            where uid = '{uid}'
+            """)
+            result = c.fetchall()
+            for csid_tuple in result:
+                self.uid_to_csid[uid].append(csid_tuple[0])
+        conn.commit()
+        conn.close()
+
+    def user_to_wait(self, user: user_info):
+        uid = user.uid
+        if uid not in self.uid_to_waitid:
+            return None
+        else:
+            return self.uid_to_waitid[uid]
+
+    def get_waitid_by_uid(self, uid):
+        if uid not in self.users:
+            return None
+        else:
+            return self.uid_to_waitid[uid]
+
+    def get_user_all_csid(self, uid):
+        if uid not in self.uid_to_csid:
+            return []
+        else:
+            csid_list = self.uid_to_csid[uid]
+            return csid_list
+
+    def get_user(self, uid) -> user_info:
+        return self.users[uid]
+
+    def user_register(self, uid, passwd, capacity):
+        """
+        用户注册, 填写 uid, passwd, capacity(电池容量)
+
+        用户名已存在返回 1, 成功返回 0
+
+        """
+        if uid in self.users:
+            return 1
+        # 更新 self.users
+        user = user_info(uid, passwd, capacity)
+        self.users[uid] = user
+        user.save()
+        return 0
+
+    def user_login(self, uid, passwd):
+        """用户登陆, 用户名错误返回1, 密码错误返回2, 成功返回0"""
+        if uid not in self.users:
+            return 1
+        user = self.users[uid]
+        if passwd != user.passwd:
+            return 2
+        user.state = 'on'
+        return 0
+
+    def user_add_balance(self, uid, money):
+        """用户不存在返回1, 充值成功返回0"""
+        if uid not in self.users:
+            return 1
+        user = self.users[uid]
+        user.add_balance(money)
+        return 0
+
+    def user_new_request(self, uid, waitid, csid):
+        """假设确实是新的(不会检测是否已存在)"""
+        self.uid_to_waitid[uid] = waitid
+        self.uid_to_csid[uid].append(csid)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(f"""
+            insert into user_to_charge_stmt (uid,csid) values
+            ('{uid}','{csid}')
+        """)
+        conn.commit()
+        conn.close()
+
+    def cancel_charge_request(self, uid, csid):
+        if uid not in self.uid_to_waitid:
+            return
+        self.uid_to_waitid.pop(uid)
+        self.uid_to_csid[uid].remove(csid)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(f"""
+            delete from user_to_charge_stmt
+            where uid = '{uid}' and csid = '{csid}'
+        """)
+        conn.commit()
+        conn.close()
+
+    def user_end_charge(self, uid):
+        if uid not in self.uid_to_waitid:
+            return
+        self.uid_to_waitid.pop(uid)
+        user = self.users[uid]
+        user.cur_wait = None
