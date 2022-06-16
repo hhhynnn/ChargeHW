@@ -558,14 +558,64 @@ class scheduler:
     #     ① 优先级调度: 暂停等待区叫号, 优先给故障队列的车进行调度
     #     ② 时间顺序调度: 充电区中未充电的车辆合并为一组
     ##############################
-    def stop_charge_pile(self):
+    def stop_charge_pile(self, pileid):
         """ 暂停使用某个充电桩 """
-        pass
+        self.refresh_system()
+        now = self.last_update_time
+        mode = pileid[0]
+        queue = self.queue[mode][pileid]
+        self.queue[mode].pop(pileid)  # 清空一个队列
+        if len(queue) == 0:
+            return
+        head: wait_info = queue[0]
+        # 让这个仁兄停止充电
+        head_stmt = self.wait_to_stmt(head)
+        head_stmt.end_chg_at(timestamp(now))
+        # 修改 wait
+        head.reserve -= head_stmt.consume
+        head.already = 0
+        # 给他一个新的详单
+        new_stmt = charge_statement.new_charge_statement(head)
+        self.charge_stmts[new_stmt.csid] = new_stmt
+        self.waitid_to_csid[head.waitid] = new_stmt.csid
+
+        if SCHEDULE_MODE == 'default':
+            for wait in queue[::-1]:
+                wait.state = 'p'
+                wait.pileid = None
+                self.queue_wait[mode].insert(0, wait)
+        elif SCHEDULE_MODE == 'flood':
+            # 混为一个编队
+            for pileid, queue_ in self.queue[mode].items():
+                queue.extend(queue_[1:])
+                self.queue[mode][pileid] = queue_[:1]
+            # 重新排序
+            queue.sort(key=lambda x: int(x.waitid[1:]))
+            for wait in queue[::-1]:
+                wait.state = 'p'
+                wait.pileid = None
+                stmt = self.wait_to_stmt(wait)
+                stmt.pileid = None
+                self.queue_wait[mode].insert(0, wait)
+        self.refresh_system()
 
     ##############################
     # 恢复使用某个充电桩
     # 功能: 同类型的充电桩混洗，按时间重新调度
     ##############################
-    def start_charge_pile(self):
+    def start_charge_pile(self, pileid):
         """恢复使用某个充电桩"""
-        pass
+        self.refresh_system()
+        mode = pileid[0]
+        self.queue[mode][pileid] = []
+        queue_tmp = []
+        for pileid, queue_ in self.queue[mode].items():
+            queue_tmp.extend(queue_[1:])
+            self.queue[mode][pileid] = queue_[:1]
+        queue_tmp.sort(key=lambda x: int(x.waitid[1:]))
+        for wait in queue_tmp[::-1]:
+            wait.pileid = None
+            stmt = self.wait_to_stmt(wait)
+            stmt.pileid = None
+            self.queue_wait[mode].insert(0, wait)
+        self.refresh_system()

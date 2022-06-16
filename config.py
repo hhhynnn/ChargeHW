@@ -28,3 +28,11 @@ default: 每次调度一辆车
 flood: 一次性调度多辆车, 整体时间最短
 outgoing: 全部等待
 """
+
+FAILOVER_MODE = 'priority'
+"""
+故障恢复策略
+
+priority: 优先级调度
+shuffle: 
+"""
