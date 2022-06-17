@@ -38,7 +38,7 @@ def hello_world():  # put application's code here
 ############################################################
 # 1. 注册
 # 参数:{"uID":xxx, "passwd":xxx}
-# 返回值: {"rtn":xxx, "msg":xxx}
+# 返回值: {"code":xxx, "msg":xxx,"data":{xxx}}
 ############################################################
 @app.route('/UserRegister/', methods=['POST'])
 def user_register():
@@ -63,7 +63,7 @@ def user_register():
 ############################################################
 # 2. 登陆
 # 参数:{"uID":xxx, "passwd":xxx}
-# 返回值: {"rtn":xxx, "msg":xxx}
+# 返回值: {"code":xxx, "msg":xxx,"data":{xxx}}
 ############################################################
 @app.route('/UserLogin', methods=['POST'])
 def user_login():
@@ -91,11 +91,11 @@ def user_login():
 ############################################################
 # 3. 提交充电请求
 # 参数: {"uID":xxx, "mode":xxx, #  "reserve":xxx}
-# 返回值:{"msg":xxx}
-# 实现方法:
+# 返回值: {"code":xxx, "msg":xxx,"data":{"waitid":xxx}}
+
+# 实现细节:
 # 生成一个"请求",放到排队队列里;
 # 生成一个"详单",包含这次请求的状态('等待中','正在充电','已结束')
-# 将"请求"放到排队队列中
 ############################################################
 @app.route('/UserNewCharge', methods=['POST'])
 def user_new_charge():
@@ -398,6 +398,20 @@ def show_pile_info():
 
 ############################################################
 # 4. 查看充电桩等候服务的车辆信息
+# 参数: 无
+# 返回值: {"code":0, "msg":success","data":data}
+#      data 是 '充电桩号 pileid' => '桩前队列 queueInfo' 的字典
+#  举例:
+#   data = {'T#1':[{"uid":"hyn",
+#                   "capacity":200,
+#                   "reserve":20,
+#                   "wait_time_left":600
+#                   "wait_time_already":2000},
+#                   {"uid":"dxw",...},
+#                   ...],
+#           'T#2':[...],
+#           ......
+#           }
 ############################################################
 @app.route('/ShowQueueInfo', methods=['POST'])
 def show_queue_info():
@@ -410,5 +424,22 @@ def show_queue_info():
     # <<< 参数
 
 
+############################################################
+# 系统报表生成
+# 参数: 无
+# 返回值: {"code":0,"msg":"success","data":data"}
+#     data 的格式{"timestamp":"xxxx-xx-xx xx:xx:xx","pileinfo":xxx (show_pile_info 中的data)}
+############################################################
+@app.route('/ShowReport', methods=['POST'])
+def show_report():
+    """查看系统报表"""
+    schedule_contr.refresh_system()
+
+    requestData = json.loads(request.get_data().decode('utf-8'))
+
+    # 参数 >>>
+    # <<< 参数
+
+
 if __name__ == '__main__':
-    app.run(threaded=True)
+    app.run(threaded=True, host='0.0.0.0', port=8000)
