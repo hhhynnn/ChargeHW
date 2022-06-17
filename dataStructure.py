@@ -577,13 +577,15 @@ class scheduler:
                 def make_seq(pileid_list, wait_list):
                     # todo: 根据充电桩号 和 等待类计算最优排队序列
                     wait_list.sort(key=lambda x: float(x.reserve))  # 按预约充电量从小到大排序
-                    seq_index = [] # 索引, 用来填排队顺序
+                    seq_index = []  # 索引, 用来填排队顺序
+                    # 计算每个桩每个位置idx的时间权重,保存到seq_index, 元素类型(桩号pile_id, 位置序号idx, 权重v)
                     for pile_id in pileid_list:
                         for idx in range(QUEUE_LEN):
-                            speed = CHG_SPEED[pile_id[0]]
+                            speed = CHG_SPEED[pile_id[0]]  # 充电速度
                             seq_index.append((pile_id, idx, (QUEUE_LEN - idx) / speed))
-                    seq_index.sort(key=lambda x: x[2], reverse=True)
+                    seq_index.sort(key=lambda x: x[2], reverse=True)  # 按权重从大到小排序, 因为 wait 是按预约从小到大排的
                     seq = defaultdict(list)
+                    # 遍历上面的索引, 依次填每个wait要放进哪个桩
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
                         pile_id = seq_index[idx][0]
