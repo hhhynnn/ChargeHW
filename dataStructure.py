@@ -247,9 +247,9 @@ class charge_statement:
 
 
 ############################################################
-# 充电桩类
+# 充电桩
 # 编码提示 这个类没有用
-############################################################
+###########################################################
 class charge_pile:
     def __init__(self, pileid, charge_cnt=0, charge_time=0, charge_capacity=0, cost_charge=0, cost_serve=0, state='on'):
         self.pileid = pileid
@@ -370,12 +370,37 @@ class scheduler:
         conn.close()
 
     ##############################
-    # 工具函数
+    # 工具函数(获取某些属性)
     ##############################
     def wait_to_stmt(self, wait) -> charge_statement:
         """用wait_info类找到charge_statement类(借助了self.waitid_to_csid)"""
         stmt_id = self.waitid_to_csid[wait.waitid]
         return self.charge_stmts[stmt_id]
+
+    def get_charge_area_cnt(self):
+        """获取充电区车数量"""
+        cnt = 0
+        for mode in ['T', 'F']:
+            for pileid, queue in self.queue[mode].items():
+                cnt += len(queue)
+        return cnt
+
+    def get_charge_area_size(self):
+        size = 0
+        for mode in ['T', 'F']:
+            for pileid in self.queue[mode]:
+                size += QUEUE_LEN
+        return size
+
+    def get_wait_area_cnt(self):
+        """获取等待区车数量"""
+        cnt = 0
+        for mode, queue in self.queue_wait.items():
+            cnt += len(queue)
+        return cnt
+
+    def get_wait_area_size(self):
+        return WAIT_QUEUE_LEN
 
     ##############################
     # 新增充电请求
@@ -511,7 +536,7 @@ class scheduler:
                     """从等待区叫到充电区"""
                     while len(self.queue_wait[mode]) and len(get_available_pileid(mode)):
                         # 1. 选择等待时间最短的队列
-                        available_pileid = get_available_pileid(mode)
+                        available_pileid = get_available_pileid(mode)  # 有空位的桩
                         wait_times = {k: v for k, v in estimate_wait_time(mode).items() if k in available_pileid}
                         target_pileid = min(wait_times, key=wait_times.get)
                         # 2. 将其加入这个队列
@@ -528,11 +553,57 @@ class scheduler:
                             stmt.start_chg_at(timestamp(now))
                         stmt.save()
             elif SCHEDULE_MODE == 'flood':
-                # todo: 一次性调度多个车, 总的等待时间最短
-                pass
-            elif SCHEDULE_MODE == 'outgoing':
-                # todo: 充电区全空 & 等待区车辆 = 充电区车辆时才进行调度
-                pass
+                # 1. 判断充电区是否有车, 如果有车, 则强制等待
+                if self.get_charge_area_cnt() > 0:
+                    return
+                # 2. 如果充电区没有车, 判断申请数量是否达到充电区+等待区数量, 如果不够, 则强制等待
+                request_cnt = self.get_wait_area_cnt()  # 请求充电数量
+                logic_wait_area_size = self.get_charge_area_size() + self.get_wait_area_size()  # 等待区+充电区空位数
+                if request_cnt < logic_wait_area_size:
+                    return
+                # 3. 充电区没车, 且申请数量数量达到充电区+等待区数量, 开始调度
+                valid_pileid = list(self.queue['T'].keys()) + list(self.queue['F'].keys())
+                waits = self.queue_wait['T'] + self.queue_wait['F']
+                waits.sort(key=lambda x: timestamp_to_seconds(x.request_time))
+                waits = waits[:logic_wait_area_size]
+
+                ##############################
+                # 计算调度顺序
+                # 参数: pileid_list => {'T':['T#1', 'T#2','T#3'], 'F':['F#1','F#2']}
+                #      waits  => 类型为 list(wait_info), 即元素为 wait_info 的列表
+                # 返回值:
+                #      seq => {'T#1': list(wait_info), 'T#2':list(wait_info),...}
+                ##############################
+                def make_seq(pileid_list, wait_list):
+                    # todo: 根据充电桩号 和 等待类计算最优排队序列
+                    wait_list.sort(key=lambda x: float(x.reserve))  # 按预约充电量从小到大排序
+                    seq_index = [] # 索引, 用来填排队顺序
+                    for pile_id in pileid_list:
+                        for idx in range(QUEUE_LEN):
+                            speed = CHG_SPEED[pile_id[0]]
+                            seq_index.append((pile_id, idx, (QUEUE_LEN - idx) / speed))
+                    seq_index.sort(key=lambda x: x[2], reverse=True)
+                    seq = defaultdict(list)
+                    for idx in range(len(seq_index)):
+                        wait_t = wait_list[idx]
+                        pile_id = seq_index[idx][0]
+                        seq[pile_id].append(wait_t)
+                    return seq
+
+                best_seq = make_seq(valid_pileid, waits)
+                for pileid, wait_seq in best_seq.items():
+                    for wait in wait_seq:
+                        mode = wait.mode
+                        self.queue_wait[mode].remove(wait)  # 从等待队列中删除
+                        self.queue[mode][pileid].append(wait)  # 加入充电队列
+                        wait.state = 'wait'
+                        wait.pileid = pileid
+                        stmt = self.wait_to_stmt(wait)
+                        stmt.pileid = pileid
+                        if len(self.queue[mode][pileid]) == 1:
+                            wait.state = 'ing'
+                            stmt.start_chg_at(timestamp(now))
+                        stmt.save()
             else:
                 print('[error] config error')
                 pass

@@ -20,13 +20,12 @@ CHG_ZONE = [([0, 7], 'L'), ([7, 10], 'N'), ([10, 15], 'H'), ([15, 18], 'N'),
 SERVE_RATE = 0.8
 """服务费率（°）"""
 
-SCHEDULE_MODE = 'default'
+SCHEDULE_MODE = 'flood'
 """
-调度策略, 可选 default/flood/outgoing
+调度策略, 可选 default/flood/
 
 default: 每次调度一辆车
 flood: 一次性调度多辆车, 整体时间最短
-outgoing: 全部等待
 """
 
 FAILOVER_MODE = 'priority'
