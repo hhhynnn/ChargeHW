@@ -145,7 +145,7 @@ def user_new_charge():
                              "msg": f'user {uid} has already reserved a charge',
                              "data": {}})
     wait_area_cnt = schedule_contr.get_wait_area_cnt()
-    if SCHEDULE_MODE == 'flood' and wait_area_cnt >= WAIT_QUEUE_LEN:
+    if SCHEDULE_MODE == 'default' and wait_area_cnt >= WAIT_QUEUE_LEN:
         return dict_to_json({"code": 4,
                              "msg": f'wait area is full, refuse to get new request',
                              "data": {}})

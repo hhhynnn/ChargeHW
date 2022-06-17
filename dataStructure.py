@@ -210,7 +210,7 @@ class charge_statement:
             """)
 
         def update():
-            c.execute(f"""
+            syntax = f"""
             update charge_stmt
             set uid='{self.uid}',
                 mode='{self.mode}',
@@ -225,7 +225,8 @@ class charge_statement:
                 generate_time='{self.generate_time}',
                 finish = '{self.finish}'
             where csid = '{self.csid}'
-            """)
+            """
+            c.execute(syntax)
 
         result = select()
         if not result:
@@ -562,7 +563,7 @@ class scheduler:
                 if request_cnt < logic_wait_area_size:
                     return
                 # 3. 充电区没车, 且申请数量数量达到充电区+等待区数量, 开始调度
-                valid_pileid = list(self.queue['T'].keys()) + list(self.queue['F'].keys())
+                valid_pileid = {'T': list(self.queue['T'].keys()), 'F': list(self.queue['F'].keys())}
                 waits = self.queue_wait['T'] + self.queue_wait['F']
                 waits.sort(key=lambda x: timestamp_to_seconds(x.request_time))
                 waits = waits[:logic_wait_area_size]
@@ -586,9 +587,12 @@ class scheduler:
                         # 每加入3个快充，就加入1个慢充
                         for _ in range(3):
                             for pile_id in pileid_list['F']:
-                                seq_index.append(('F', pile_id))
+                                # seq_index.append(('F', pile_id))
+                                # !!!!! 这里只能填 pile_id 进去, 因为下面会遍历 seq_index, 并把其值作为索引保存到seq
+                                seq_index.append(pile_id)
                         for pile_id in pileid_list['T']:
-                            seq_index.append(('T', pile_id))
+                            # seq_index.append(('T', pile_id))
+                            seq_index.append(pile_id)
                     # 截断末尾部分
                     seq_index = seq_index[:len(wait_list)]
                     seq_index.reverse()
@@ -596,7 +600,7 @@ class scheduler:
                     # 遍历上面的索引, 依次填每个wait要放进哪个桩
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
-                        pile_id = seq_index[idx]
+                        pile_id = seq_index[idx] # !!! 这里遍历了seq_index, 并利用了其值
                         seq[pile_id].append(wait_t)
                     return seq
 

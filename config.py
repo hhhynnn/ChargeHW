@@ -3,7 +3,7 @@ DB_PATH = './res.db'
 
 QUEUE_LEN = 2
 """充电区长度"""
-WAIT_QUEUE_LEN = 10
+WAIT_QUEUE_LEN = 5
 """等候区长度"""
 
 PILEID = {'F': ['F#1', 'F#2'], 'T': ['T#1', 'T#2', 'T#3']}
