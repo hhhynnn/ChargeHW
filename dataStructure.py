@@ -506,26 +506,36 @@ class scheduler:
             return wait_times
 
         def call_wait():
-            for mode in ['F', 'T']:
-                """从等待区叫到充电区"""
-                while len(self.queue_wait[mode]) and len(get_available_pileid(mode)):
-                    # 1. 选择等待时间最短的队列
-                    available_pileid = get_available_pileid(mode)
-                    wait_times = {k: v for k, v in estimate_wait_time(mode).items() if k in available_pileid}
-                    target_pileid = min(wait_times, key=wait_times.get)
-                    # 2. 将其加入这个队列
-                    wait = self.queue_wait[mode].pop(0)
-                    self.queue[mode][target_pileid].append(wait)
-                    # 3. 更新表单
-                    wait.state = 'wait'
-                    wait.pileid = target_pileid
-                    stmt = self.wait_to_stmt(wait)
-                    stmt.pileid = target_pileid
-                    if len(self.queue[mode][target_pileid]) == 1:
-                        # 进去就开始充电
-                        wait.state = 'ing'
-                        stmt.start_chg_at(timestamp(now))
-                    stmt.save()
+            if SCHEDULE_MODE == 'default':
+                for mode in ['F', 'T']:
+                    """从等待区叫到充电区"""
+                    while len(self.queue_wait[mode]) and len(get_available_pileid(mode)):
+                        # 1. 选择等待时间最短的队列
+                        available_pileid = get_available_pileid(mode)
+                        wait_times = {k: v for k, v in estimate_wait_time(mode).items() if k in available_pileid}
+                        target_pileid = min(wait_times, key=wait_times.get)
+                        # 2. 将其加入这个队列
+                        wait = self.queue_wait[mode].pop(0)
+                        self.queue[mode][target_pileid].append(wait)
+                        # 3. 更新表单
+                        wait.state = 'wait'
+                        wait.pileid = target_pileid
+                        stmt = self.wait_to_stmt(wait)
+                        stmt.pileid = target_pileid
+                        if len(self.queue[mode][target_pileid]) == 1:
+                            # 进去就开始充电
+                            wait.state = 'ing'
+                            stmt.start_chg_at(timestamp(now))
+                        stmt.save()
+            elif SCHEDULE_MODE == 'flood':
+                # todo: 一次性调度多个车, 总的等待时间最短
+                pass
+            elif SCHEDULE_MODE == 'outgoing':
+                # todo: 充电区全空 & 等待区车辆 = 充电区车辆时才进行调度
+                pass
+            else:
+                print('[error] config error')
+                pass
 
         def update_queue():
             """

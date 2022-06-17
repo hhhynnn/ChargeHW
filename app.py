@@ -516,22 +516,30 @@ def admin_stop_pile():
 #     "code":0,
 #     "msg":"success",
 #     "data":{
-#         "time":"2022-06-17 21:04:29",
-#         "info":{
-#             "T#1":{
+#         "time":"2022-06-17 22:18:48",
+#         "info":[
+#             {
 #                 "pileid":"T#1",
-#                 "charge_cnt":2, # 累计充电次数
-#                 "charge_time":86890, # 累计充电时间, 单位(秒)
-#                 "charge_capacity":1.3611111111111112, # 累计充电电量, 单位(度)
-#                 "cost_charge":2.361111111111111, # 累计充电费用, 单位(元)
-#                 "cost_serve":1.088888888888889,  # 累计服务费用, 单位(元)
-#                 "state":"on"         # 充电桩状态, 可选 "on"/"off"
+#                 "charge_cnt":14,
+#                 "charge_time":88237,
+#                 "charge_capacity":5.102777777777778,
+#                 "cost_charge":4.9802777777777765,
+#                 "cost_serve":4.082222222222223,
+#                 "state":"on"
 #             },
-#             "T#2":{......},
-#             "T#3":{......},
-#             "F#1":{......},
-#             "F#2":{......}
-#         }
+#             {
+#                 "pileid":"T#2",
+#                 "charge_cnt":6,
+#                 "charge_time":86429,
+#                 "charge_capacity":0.08055555555555566,
+#                 "cost_charge":0.7830555555555555,
+#                 "cost_serve":0.06444444444444439,
+#                 "state":"on"
+#             },
+#             {
+#                 .....
+#             }
+#         ]
 #     }
 # }
 ############################################################
@@ -563,32 +571,38 @@ def show_pile_info():
         pile.charge_capacity += float(stmt.consume)
         pile.cost_charge += stmt.cost_charge
         pile.cost_serve += stmt.cost_serve
-    pile_states = {pileid: pile_obj.toDict() for pileid, pile_obj in piles.items()}
+    # pile_states = {pileid: pile_obj.toDict() for pileid, pile_obj in piles.items()}
+    pile_states = [pile_obj.toDict() for pileid, pile_obj in piles.items()]
     return dict_to_json({"code": 0, "msg": "success", "data": {"time": now, "info": pile_states}})
 
 
 ############################################################
 # 4. 查看充电桩等候服务的车辆信息
 # 参数: {}
-# 返回值: {
+# 返回值:{
 #     "code":0,
 #     "msg":"success",
-#     "data":{
-#         "T#1":[
-#             {
-#                 "uid":"username",
-#                 "waitid":"T1",  # 等待号
-#                 "capacity":200.0,  # 车电池容量
-#                 "reserve":100.0, # 预约充电量
-#                 "wait_already":2.0, # 已经等待的时间,单位(秒)
-#                 "wait_left":0   # 预计等待时间,单位(秒)
-#             },
-#             {..... }
-#         ],
-#         "T#2":[{......},{......},...],
-#         "T#3":[{......},{......},...],
-#         ......
-#     }
+#     "data":[
+#         {
+#             "pileid":"T#1",
+#             "queue":[
+#                 {
+#                     "uid":"a1",
+#                     "waitid":"T1",
+#                     "capacity":200.0,
+#                     "reserve":10.0,
+#                     "wait_already":3.0,
+#                     "wait_left":0
+#                 },
+#                 {
+#                     ......
+#                 }
+#             ]
+#         },
+#         {
+#              ......
+#         },
+#     ]
 # }
 ############################################################
 @app.route('/ShowQueueInfo', methods=['POST'])
@@ -601,7 +615,7 @@ def show_queue_info():
     # 参数 >>>
     # <<< 参数
     now = time.time()
-    data = defaultdict(list)
+    data_raw = defaultdict(list)
     for mode in ['T', 'F']:
         for pileid, queue in schedule_contr.queue[mode].items():
             wait_time_left_tmp = 0
@@ -613,7 +627,7 @@ def show_queue_info():
                     wait_already = now - timestamp_to_seconds(wait.request_time)
                 wait_left = wait_time_left_tmp
                 wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
-                data[pileid].append(
+                data_raw[pileid].append(
                     {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
                      "wait_already": wait_already, "wait_left": wait_left})
         wait_time_left_tmp = 0
@@ -621,8 +635,13 @@ def show_queue_info():
             wait_already = now - timestamp_to_seconds(wait.request_time)
             wait_left = wait_time_left_tmp
             wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
-            data[f"{mode}#wait"].append({"uid": wait.uid, "capacity": wait.capacity, "reserve": wait.reserve,
-                                         "wait_already": wait_already, "wait_left": wait_left})
+            data_raw[f"{mode}#wait"].append({"uid": wait.uid, "capacity": wait.capacity, "reserve": wait.reserve,
+                                             "wait_already": wait_already, "wait_left": wait_left})
+        data = []
+        for key, value in data_raw.items():
+            item = {"pileid": key, "queue": value}
+            data.append(item)
+
     return dict_to_json({"code": 0, "msg": "success", "data": data})
 
 
