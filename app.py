@@ -392,8 +392,11 @@ def user_end_charge():
 
     if uid not in user_contr.uid_to_waitid:
         return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+
     waitid = user_contr.uid_to_waitid[uid]
     wait = schedule_contr.wait_infos[waitid]
+    if wait.state != 'ing':
+        return dict_to_json({"code": 2, "msg": f"wait state<{wait.state}>!='ing, can't end_charge", "data": {}})
     # schedule_controller 处理数据
     schedule_contr.user_end_charge(waitid)
     # user_controller 处理数据
