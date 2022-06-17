@@ -600,7 +600,7 @@ class scheduler:
                     # 遍历上面的索引, 依次填每个wait要放进哪个桩
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
-                        pile_id = seq_index[idx] # !!! 这里遍历了seq_index, 并利用了其值
+                        pile_id = seq_index[idx]  # !!! 这里遍历了seq_index, 并利用了其值
                         seq[pile_id].append(wait_t)
                     return seq
 
@@ -733,12 +733,12 @@ class scheduler:
         self.charge_stmts[new_stmt.csid] = new_stmt
         self.waitid_to_csid[head.waitid] = new_stmt.csid
 
-        if SCHEDULE_MODE == 'default':
+        if FAILOVER_MODE == 'priority':
             for wait in queue[::-1]:
                 wait.state = 'p'
                 wait.pileid = None
                 self.queue_wait[mode].insert(0, wait)
-        elif SCHEDULE_MODE == 'flood':
+        elif FAILOVER_MODE == 'shuffle':
             # 混为一个编队
             for pileid, queue_ in self.queue[mode].items():
                 queue.extend(queue_[1:])

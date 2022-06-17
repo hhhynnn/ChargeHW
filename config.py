@@ -33,5 +33,5 @@ FAILOVER_MODE = 'priority'
 故障恢复策略
 
 priority: 优先级调度
-shuffle: 
+shuffle:  时间顺序调度
 """
