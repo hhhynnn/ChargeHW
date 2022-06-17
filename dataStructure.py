@@ -582,14 +582,13 @@ class scheduler:
                     #     for idx in range(QUEUE_LEN):
                     #         speed = CHG_SPEED[pile_id[0]]
                     #         seq_index.append((pile_id, idx, (QUEUE_LEN - idx) / speed))
-                    round = 0
                     while len(seq_index) < len(wait_list):
                         # 每加入3个快充，就加入1个慢充
-                        for mini_round in range(3):
+                        for _ in range(3):
                             for pile_id in pileid_list['F']:
-                                seq_index.append((('F', pile_id), (mini_round + round)))
+                                seq_index.append(('F', pile_id))
                         for pile_id in pileid_list['T']:
-                            seq_index.append((('T', pile_id), round))
+                            seq_index.append(('T', pile_id))
                     # 截断末尾部分
                     seq_index = seq_index[:len(wait_list)]
                     seq_index.reverse()
@@ -597,7 +596,7 @@ class scheduler:
                     # 遍历上面的索引, 依次填每个wait要放进哪个桩
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
-                        pile_id = seq_index[idx][0]
+                        pile_id = seq_index[idx]
                         seq[pile_id].append(wait_t)
                     return seq
 
