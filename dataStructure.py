@@ -594,6 +594,7 @@ class scheduler:
                     seq_index = seq_index[:len(wait_list)]
                     seq_index.reverse()
                     seq = defaultdict(list)
+                    # 遍历上面的索引, 依次填每个wait要放进哪个桩
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
                         pile_id = seq_index[idx][0]
