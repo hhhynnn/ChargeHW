@@ -577,12 +577,22 @@ class scheduler:
                 def make_seq(pileid_list, wait_list):
                     # todo: 根据充电桩号 和 等待类计算最优排队序列
                     wait_list.sort(key=lambda x: float(x.reserve))  # 按预约充电量从小到大排序
-                    seq_index = [] # 索引, 用来填排队顺序
-                    for pile_id in pileid_list:
-                        for idx in range(QUEUE_LEN):
-                            speed = CHG_SPEED[pile_id[0]]
-                            seq_index.append((pile_id, idx, (QUEUE_LEN - idx) / speed))
-                    seq_index.sort(key=lambda x: x[2], reverse=True)
+                    seq_index = []  # 索引, 用来填排队顺序
+                    # for pile_id in pileid_list:
+                    #     for idx in range(QUEUE_LEN):
+                    #         speed = CHG_SPEED[pile_id[0]]
+                    #         seq_index.append((pile_id, idx, (QUEUE_LEN - idx) / speed))
+                    round = 0
+                    while len(seq_index) < len(wait_list):
+                        # 每加入3个快充，就加入1个慢充
+                        for mini_round in range(3):
+                            for pile_id in pileid_list['F']:
+                                seq_index.append((('F', pile_id), (mini_round + round)))
+                        for pile_id in pileid_list['T']:
+                            seq_index.append((('T', pile_id), round))
+                    # 截断末尾部分
+                    seq_index = seq_index[:len(wait_list)]
+                    seq_index.reverse()
                     seq = defaultdict(list)
                     for idx in range(len(seq_index)):
                         wait_t = wait_list[idx]
