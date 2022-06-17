@@ -51,7 +51,7 @@ def hello_world():  # put application's code here
 ############################################################
 @app.route('/UserRegister', methods=['POST'])
 def user_register():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -83,7 +83,7 @@ def user_register():
 ############################################################
 @app.route('/UserLogin', methods=['POST'])
 def user_login():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -120,7 +120,8 @@ def user_login():
 ############################################################
 @app.route('/UserNewCharge', methods=['POST'])
 def user_new_charge():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
+
     requestData = json.loads(request.get_data().decode('utf-8'))
 
     # 参数 >>>
@@ -171,6 +172,8 @@ def user_new_charge():
 ############################################################
 @app.route('/UserModifyCharge', methods=['POST'])
 def user_modify_charge():
+    user_contr.refresh(schedule_contr.refresh_system())
+
     requestData = json.loads(request.get_data().decode('utf-8'))
 
     # 参数 >>>
@@ -235,7 +238,7 @@ def user_modify_charge():
 ############################################################
 @app.route('/UserCheckCharge', methods=['POST'])
 def user_check_charge():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -265,7 +268,7 @@ def user_check_charge():
 ############################################################
 @app.route('/UserCancelCharge', methods=['POST'])
 def user_cancel_charge():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -310,7 +313,7 @@ def user_cancel_charge():
 ############################################################
 @app.route('/UserShowWaitid', methods=['POST'])
 def user_show_waitid():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -341,7 +344,7 @@ def user_show_waitid():
 ############################################################
 @app.route('/UserShowPreWaitCnt', methods=['POST'])
 def user_show_pre_wait_cnt():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -379,7 +382,7 @@ def user_show_pre_wait_cnt():
 ############################################################
 @app.route('/UserEndCharge', methods=['POST'])
 def user_end_charge():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -414,7 +417,7 @@ def user_end_charge():
 ############################################################
 @app.route('/UserAddBalance', methods=['POST'])
 def user_add_balance():
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -453,7 +456,7 @@ def user_add_balance():
 @app.route('/AdminStartPile', methods=['POST'])
 def admin_start_pile():
     """管理员开启充电桩 """
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -485,7 +488,7 @@ def admin_start_pile():
 @app.route('/AdminStopPile', methods=['POST'])
 def admin_stop_pile():
     """管理员关闭充电桩 """
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -532,7 +535,7 @@ def admin_stop_pile():
 @app.route('/ShowPileInfo', methods=['POST'])
 def show_pile_info():
     """查看充电桩状态"""
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     # requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -588,7 +591,7 @@ def show_pile_info():
 @app.route('/ShowQueueInfo', methods=['POST'])
 def show_queue_info():
     """查看充电桩队列信息"""
-    schedule_contr.refresh_system()
+    user_contr.refresh(schedule_contr.refresh_system())
 
     # requestData = json.loads(request.get_data().decode('utf-8'))
 

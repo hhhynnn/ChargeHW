@@ -531,6 +531,7 @@ class scheduler:
             """
             充电队列随着时间推移，修改相关信息;
             """
+            end_wait_list = []
             timediff = int(now - pre)  # 时间比较单位用s, 并且要求是整数比较
             for mode in ['F', 'T']:
                 for pileid, queue in self.queue[mode].items():
@@ -547,6 +548,7 @@ class scheduler:
                         if need_time < timediff - timeline:
                             timeline += need_time
                             # 直接充满
+                            end_wait_list.append(charger)
                             # 1. 修改 wait_info 和 charge_statement 对象信息
                             charger.already = charger.reserve
                             charger.state = 'end'
@@ -568,12 +570,14 @@ class scheduler:
                             stmt.cont_chg_at(timestamp(now))
                             charger.already = (HMS_to_seconds(stmt.time_total) / 3600) * CHG_SPEED[charger.mode]
                             stmt.save()
+            return end_wait_list
 
         # 更新队列
-        update_queue()
+        end_list = update_queue()
         # 叫号
         call_wait()
         # update_queue()
+        return end_list
 
     ##############################
     # 用户结束充电
@@ -847,3 +851,10 @@ class user_controller:
         self.uid_to_waitid.pop(uid)
         user = self.users[uid]
         user.cur_wait = None
+
+    def refresh(self, end_wait_list):
+        for wait in end_wait_list:
+            uid = wait.uid
+            if uid not in self.uid_to_waitid:
+                continue
+            self.uid_to_waitid.pop(uid)
