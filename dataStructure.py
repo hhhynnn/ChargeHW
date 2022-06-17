@@ -261,7 +261,7 @@ class charge_pile:
         self.state = state
 
     def toDict(self):
-        return {"pileid": self.pileid, "charge_cnt": self.cost_charge, "charge_time": self.charge_time,
+        return {"pileid": self.pileid, "charge_cnt": self.charge_cnt, "charge_time": self.charge_time,
                 "charge_capacity": self.charge_capacity, "cost_charge": self.cost_charge,
                 "cost_serve": self.cost_serve, "state": self.state}
 
@@ -291,14 +291,14 @@ class wait_info:
     """ 保存排队相关的信息 """
     queue_cnt = {'F': 0, 'T': 0}
 
-    def __init__(self, uid, mode, reserve, total, waitid='F0', state='p'):
+    def __init__(self, uid, mode, reserve, capaticy, waitid='F0', state='p'):
         """禁止调用这个构造函数, 一定要调用new_wait_info"""
         self.uid = uid
         self.mode = mode
         """充电模式, 可选: F/T"""
         self.reserve = reserve
         """预约充电量, 单位: 度"""
-        self.total = total
+        self.capacity = capaticy
 
         self.waitid = waitid
         self.state = state
@@ -306,6 +306,9 @@ class wait_info:
         self.pileid = None
         self.already = 0
         """已经充电的充电量"""
+
+        self.request_time = 'xxxx-xx-xx xx:xx:xx'
+        """发起申请的时间"""
 
     @staticmethod
     def new_waitid(mode):
@@ -317,15 +320,16 @@ class wait_info:
     def new_wait_info(uid, mode, reserve, total):
         waitid = wait_info.new_waitid(mode)
         new_wait = wait_info(uid, mode, reserve, total, waitid)
+        new_wait.request_time = timestamp()
         return new_wait
 
     def show_car_info(self):
         """显示正在排队的车辆的信息"""
-        return {"uid": self.uid, "total": self.total, "reserve": self.reserve}
+        return {"uid": self.uid, "total": self.capacity, "reserve": self.reserve}
 
     def __str__(self):
         dd = {"uid": self.uid, "waitid": self.waitid, "mode": self.mode, "state": self.state,
-              "reserve": self.reserve, "already": self.already, "total": self.total, "pileid": self.pileid, }
+              "reserve": self.reserve, "already": self.already, "total": self.capacity, "pileid": self.pileid, }
         return json.dumps(dd, ensure_ascii=False)
 
     def __repr__(self):
@@ -688,6 +692,7 @@ class user_info:
     def add_balance(self, money):
         self.balance += money
         self.save()
+        return self.balance
 
     def save(self):
         conn = sqlite3.connect(DB_PATH)

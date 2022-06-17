@@ -12,7 +12,7 @@ app = Flask(__name__)
 
 
 def dict_to_json(dd: dict):
-    return json.dumps(dd, ensure_ascii=False)
+    return json.dumps(dd, ensure_ascii=False, indent=4, separators=(',', ':'))
 
 
 @app.route('/')
@@ -37,10 +37,19 @@ def hello_world():  # put application's code here
 
 ############################################################
 # 1. 注册
-# 参数:{"uID":xxx, "passwd":xxx}
-# 返回值: {"code":xxx, "msg":xxx,"data":{xxx}}
+# 参数: {
+#         "uid": "username",
+#         "passwd": "password",
+#         "capacity": 200       # 车辆电池总容量
+#     }
+# 返回值:{
+#         "code":0,        # 成功时返回0, 失败返回非0
+#         "msg":"success", # 成功时返回 success, 失败时返回错误原因
+#         "data":{}
+#     }
+
 ############################################################
-@app.route('/UserRegister/', methods=['POST'])
+@app.route('/UserRegister', methods=['POST'])
 def user_register():
     schedule_contr.refresh_system()
 
@@ -62,8 +71,15 @@ def user_register():
 
 ############################################################
 # 2. 登陆
-# 参数:{"uID":xxx, "passwd":xxx}
-# 返回值: {"code":xxx, "msg":xxx,"data":{xxx}}
+#  参数:{
+#     "uid":"username",
+#     "passwd":"password"
+# }
+# 返回值:{
+#         "code":0,        # 成功时返回0, 失败返回非0
+#         "msg":"success", # 成功时返回 success, 失败时返回错误原因
+#         "data":{}
+#     }
 ############################################################
 @app.route('/UserLogin', methods=['POST'])
 def user_login():
@@ -90,12 +106,17 @@ def user_login():
 
 ############################################################
 # 3. 提交充电请求
-# 参数: {"uID":xxx, "mode":xxx, #  "reserve":xxx}
-# 返回值: {"code":xxx, "msg":xxx,"data":{"waitid":xxx}}
-
-# 实现细节:
-# 生成一个"请求",放到排队队列里;
-# 生成一个"详单",包含这次请求的状态('等待中','正在充电','已结束')
+# 参数: {
+#     "uid":"username",
+#     "mode":"F",      # 可选: "T"/"F"
+#     "reserve":20     # 预约充电量, 单位: 度
+# }
+# 返回值: {
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "waitid":"F1" # 排队号
+#     }
 ############################################################
 @app.route('/UserNewCharge', methods=['POST'])
 def user_new_charge():
@@ -107,26 +128,46 @@ def user_new_charge():
     mode = requestData['mode']
     reserve = float(requestData['reserve'])
     # <<< 参数
-
+    if uid not in user_contr.users:
+        return dict_to_json({"code": 1,
+                             "msg": "user not exists",
+                             "data": {}})
     user = user_contr.get_user(uid)
+    capacity = user.capacity
+    if reserve > capacity:
+        return dict_to_json({"code": 2,
+                             "msg": f"reserve <{reserve}> can't bigger than capacity <{capacity}>",
+                             "data": {}})
+
     if uid in user_contr.uid_to_waitid:
-        code = 1
-        msg = f'user {uid} has already reserved a charge'
-        waitid = None
-    else:
-        capacity = user.capacity
-        code = 0
-        msg = 'success'
-        # schedule_controller 处理数据
-        waitid = schedule_contr.new_charge_request(uid, mode, reserve, capacity)
-        # user_controller 处理数据
-        csid = schedule_contr.waitid_to_csid[waitid]
-        user_contr.user_new_request(uid, waitid, csid)
+        return dict_to_json({"code": 3,
+                             "msg": f'user {uid} has already reserved a charge',
+                             "data": {}})
+    capacity = user.capacity
+    code = 0
+    msg = 'success'
+    # schedule_controller 处理数据
+    waitid = schedule_contr.new_charge_request(uid, mode, reserve, capacity)
+    # user_controller 处理数据
+    csid = schedule_contr.waitid_to_csid[waitid]
+    user_contr.user_new_request(uid, waitid, csid)
     return dict_to_json({"code": code, "msg": msg, "data": {"waitid": waitid}})
 
 
 ############################################################
 # 4.修改充电请求
+# 参数:{
+#     "uid":"username",
+#     "mode":"T",      # 新的充电模式
+#     "reserve":20
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "waitid":"F1"  # 新的 waitid
+#     }
+# }
 ############################################################
 @app.route('/UserModifyCharge', methods=['POST'])
 def user_modify_charge():
@@ -141,21 +182,56 @@ def user_modify_charge():
     schedule_contr.refresh_system()
 
     if uid not in user_contr.uid_to_waitid:
-        code = 1
-        msg = f"user {uid} has no charge request to modify"
-        waitid = None
-    else:
-        # user_controller 处理数据
-        waitid = user_contr.uid_to_waitid[uid]
-        # schedule_controller 处理数据
-        waitid = schedule_contr.modify_charge_request(waitid, mode, reserve)
-        code = 0
-        msg = f"success"
+        return dict_to_json({"code": 1,
+                             "msg": f"user {uid} has no charge request to modify",
+                             "data": {"waitid": None}})
+    waitid = user_contr.uid_to_waitid[uid]
+    wait = schedule_contr.wait_infos[waitid]
+    if wait.state != 'p':
+        return dict_to_json({"code": 2,
+                             "msg": f"wait's state is '{wait.state}', refuse modify",
+                             "data": {"waitid": None}})
+    # user_controller 处理数据
+    waitid = user_contr.uid_to_waitid[uid]
+    # schedule_controller 处理数据
+    waitid = schedule_contr.modify_charge_request(waitid, mode, reserve)
+    code = 0
+    msg = f"success"
     return dict_to_json({"code": code, "msg": msg, "data": {"waitid": waitid}})
 
 
 ############################################################
 # 5. 查看充电详单
+# 参数: {
+#     "uid":"username"
+# }
+# 返回值: {
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "stmts":[
+#             {
+#                 "csid":17, # 详单号
+#                 "uid":"username",
+#                 "mode":"T", # 充电模式
+#                 "reserve":20.0, # 预约充电量
+#                 "pileid":"T#3",
+#                 "time_start":"2022-06-17 20:15:40", # 开始充电时间
+#                 "time_end":"None", # 结束充电时间
+#                 "time_total":"00:00:10", # 充电总时长
+#                 "consume":"0.02777777777777778", # 实际充电量
+#                 "cost_charge":0.02777777777777778, # 充电费
+#                 "cost_serve":0.022222222222222223, # 服务费
+#                 "cost_total":0.05, # 总费用
+#                 "generate_time":"2022-06-17 20:15:50", # 详单的最后修改时间
+#                 "finish":"False" # 此次充电是否结束
+#             },
+#             {
+#                 ......
+#             }
+#         ]
+#     }
+# }
 ############################################################
 @app.route('/UserCheckCharge', methods=['POST'])
 def user_check_charge():
@@ -178,6 +254,14 @@ def user_check_charge():
 
 ############################################################
 # 6. 取消充电
+# 参数:{
+#     "uid":username"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{}
+# }
 ############################################################
 @app.route('/UserCancelCharge', methods=['POST'])
 def user_cancel_charge():
@@ -213,6 +297,16 @@ def user_cancel_charge():
 
 ############################################################
 # 7. 查看本车排队号码
+# 参数: {
+#     "uid":"username"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "waitid":"T1"
+#     }
+# }
 ############################################################
 @app.route('/UserShowWaitid', methods=['POST'])
 def user_show_waitid():
@@ -234,6 +328,16 @@ def user_show_waitid():
 
 ############################################################
 # 8. 查看前车等待数量
+# 参数: {
+#     "uid":"username"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "cnt":0 # 前车排队数量
+#     }
+# }
 ############################################################
 @app.route('/UserShowPreWaitCnt', methods=['POST'])
 def user_show_pre_wait_cnt():
@@ -264,6 +368,14 @@ def user_show_pre_wait_cnt():
 
 ############################################################
 # 9. 结束充电
+# 参数:{
+#     "uid":"username"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{}
+# }
 ############################################################
 @app.route('/UserEndCharge', methods=['POST'])
 def user_end_charge():
@@ -288,6 +400,17 @@ def user_end_charge():
 
 ############################################################
 # 10. 余额充值
+# 参数: {
+#     "uid":"username",
+#     "money":1000  # 充值额度
+# }
+# 返回值: {
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "money":3000.0  # 当前余额
+#     }
+# }
 ############################################################
 @app.route('/UserAddBalance', methods=['POST'])
 def user_add_balance():
@@ -302,8 +425,8 @@ def user_add_balance():
 
     if uid not in user_contr.users:
         return dict_to_json({"code": 1, "msg": "user not exists", "data": {}})
-    user_contr.users[uid].add_balance(money)
-    return dict_to_json({"code": 0, "msg": "success", "data": {}})
+    cur_money = user_contr.users[uid].add_balance(money)
+    return dict_to_json({"code": 0, "msg": "success", "data": {"money": cur_money}})
 
 
 ################################################################################
@@ -318,6 +441,14 @@ def user_add_balance():
 
 ############################################################
 # 1. 开启充电桩
+# 参数:{
+#     "pileid":"T#1"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{}
+# }
 ############################################################
 @app.route('/AdminStartPile', methods=['POST'])
 def admin_start_pile():
@@ -342,6 +473,14 @@ def admin_start_pile():
 
 ############################################################
 # 2. 关闭充电桩
+# 参数:{
+#     "pileid":"T#1"
+# }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{}
+# }
 ############################################################
 @app.route('/AdminStopPile', methods=['POST'])
 def admin_stop_pile():
@@ -366,18 +505,42 @@ def admin_stop_pile():
 
 ############################################################
 # 3. 查看充电桩的状态
+# 参数: { }
+# 返回值:{
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "time":"2022-06-17 21:04:29",
+#         "info":{
+#             "T#1":{
+#                 "pileid":"T#1",
+#                 "charge_cnt":2, # 累计充电次数
+#                 "charge_time":86890, # 累计充电时间, 单位(秒)
+#                 "charge_capacity":1.3611111111111112, # 累计充电电量, 单位(度)
+#                 "cost_charge":2.361111111111111, # 累计充电费用, 单位(元)
+#                 "cost_serve":1.088888888888889,  # 累计服务费用, 单位(元)
+#                 "state":"on"         # 充电桩状态, 可选 "on"/"off"
+#             },
+#             "T#2":{......},
+#             "T#3":{......},
+#             "F#1":{......},
+#             "F#2":{......}
+#         }
+#     }
+# }
 ############################################################
 @app.route('/ShowPileInfo', methods=['POST'])
 def show_pile_info():
     """查看充电桩状态"""
     schedule_contr.refresh_system()
 
-    requestData = json.loads(request.get_data().decode('utf-8'))
+    # requestData = json.loads(request.get_data().decode('utf-8'))
 
     # 参数 >>>
     # <<< 参数
 
     piles = {}
+    now = timestamp()
     for mode in ['T', 'F']:
         for pileid in PILEID[mode]:
             piles[pileid] = charge_pile(pileid)
@@ -386,59 +549,75 @@ def show_pile_info():
             else:
                 piles[pileid].state = 'off'
     for csid, stmt in schedule_contr.charge_stmts.items():
+        if stmt.pileid == 'None':
+            continue
         pile = piles[stmt.pileid]
         pile.charge_cnt += 1
         pile.charge_time += HMS_to_seconds(stmt.time_total)
-        pile.charge_capacity += stmt.consume
+        pile.charge_capacity += float(stmt.consume)
         pile.cost_charge += stmt.cost_charge
         pile.cost_serve += stmt.cost_serve
-    data = {pileid: pile_obj.toDict() for pileid, pile_obj in piles.items()}
-    return dict_to_json({"code": 0, "msg": "success", "data": data})
+    pile_states = {pileid: pile_obj.toDict() for pileid, pile_obj in piles.items()}
+    return dict_to_json({"code": 0, "msg": "success", "data": {"time": now, "info": pile_states}})
 
 
 ############################################################
 # 4. 查看充电桩等候服务的车辆信息
-# 参数: 无
-# 返回值: {"code":0, "msg":success","data":data}
-#      data 是 '充电桩号 pileid' => '桩前队列 queueInfo' 的字典
-#  举例:
-#   data = {'T#1':[{"uid":"hyn",
-#                   "capacity":200,
-#                   "reserve":20,
-#                   "wait_time_left":600
-#                   "wait_time_already":2000},
-#                   {"uid":"dxw",...},
-#                   ...],
-#           'T#2':[...],
-#           ......
-#           }
+# 参数: {}
+# 返回值: {
+#     "code":0,
+#     "msg":"success",
+#     "data":{
+#         "T#1":[
+#             {
+#                 "uid":"username",
+#                 "waitid":"T1",  # 等待号
+#                 "capacity":200.0,  # 车电池容量
+#                 "reserve":100.0, # 预约充电量
+#                 "wait_already":2.0, # 已经等待的时间,单位(秒)
+#                 "wait_left":0   # 预计等待时间,单位(秒)
+#             },
+#             {..... }
+#         ],
+#         "T#2":[{......},{......},...],
+#         "T#3":[{......},{......},...],
+#         ......
+#     }
+# }
 ############################################################
 @app.route('/ShowQueueInfo', methods=['POST'])
 def show_queue_info():
     """查看充电桩队列信息"""
     schedule_contr.refresh_system()
 
-    requestData = json.loads(request.get_data().decode('utf-8'))
+    # requestData = json.loads(request.get_data().decode('utf-8'))
 
     # 参数 >>>
     # <<< 参数
-
-
-############################################################
-# 系统报表生成
-# 参数: 无
-# 返回值: {"code":0,"msg":"success","data":data"}
-#     data 的格式{"timestamp":"xxxx-xx-xx xx:xx:xx","pileinfo":xxx (show_pile_info 中的data)}
-############################################################
-@app.route('/ShowReport', methods=['POST'])
-def show_report():
-    """查看系统报表"""
-    schedule_contr.refresh_system()
-
-    requestData = json.loads(request.get_data().decode('utf-8'))
-
-    # 参数 >>>
-    # <<< 参数
+    now = time.time()
+    data = defaultdict(list)
+    for mode in ['T', 'F']:
+        for pileid, queue in schedule_contr.queue[mode].items():
+            wait_time_left_tmp = 0
+            for seq, wait in enumerate(queue):
+                if seq == 0:
+                    stmt = schedule_contr.wait_to_stmt(wait)
+                    wait_already = timestamp_to_seconds(stmt.time_start) - timestamp_to_seconds(wait.request_time)
+                else:
+                    wait_already = now - timestamp_to_seconds(wait.request_time)
+                wait_left = wait_time_left_tmp
+                wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
+                data[pileid].append(
+                    {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
+                     "wait_already": wait_already, "wait_left": wait_left})
+        wait_time_left_tmp = 0
+        for seq, wait in enumerate(schedule_contr.queue_wait[mode]):
+            wait_already = now - timestamp_to_seconds(wait.request_time)
+            wait_left = wait_time_left_tmp
+            wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
+            data[f"{mode}#wait"].append({"uid": wait.uid, "capacity": wait.capacity, "reserve": wait.reserve,
+                                         "wait_already": wait_already, "wait_left": wait_left})
+    return dict_to_json({"code": 0, "msg": "success", "data": data})
 
 
 if __name__ == '__main__':
