@@ -227,7 +227,7 @@ def user_modify_charge():
 #                 "time_start":"2022-06-17 20:15:40", # 开始充电时间
 #                 "time_end":"None", # 结束充电时间
 #                 "time_total":"00:00:10", # 充电总时长
-#                 "consume":"0.02777777777777778", # 实际充电量
+#                 "consume":0.02777777777777778, # 实际充电量
 #                 "cost_charge":0.02777777777777778, # 充电费
 #                 "cost_serve":0.022222222222222223, # 服务费
 #                 "cost_total":0.05, # 总费用
@@ -568,7 +568,7 @@ def show_pile_info():
             else:
                 piles[pileid].state = 'off'
     for csid, stmt in schedule_contr.charge_stmts.items():
-        if stmt.pileid == 'None':
+        if stmt.pileid in [None, 'None']:
             continue
         pile = piles[stmt.pileid]
         pile.charge_cnt += 1
@@ -640,8 +640,9 @@ def show_queue_info():
             wait_already = now - timestamp_to_seconds(wait.request_time)
             wait_left = wait_time_left_tmp
             wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
-            data_raw[f"{mode}#wait"].append({"uid": wait.uid, "capacity": wait.capacity, "reserve": wait.reserve,
-                                             "wait_already": wait_already, "wait_left": wait_left})
+            data_raw[f"{mode}#wait"].append(
+                {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
+                 "wait_already": wait_already, "wait_left": wait_left})
         data = []
         for key, value in data_raw.items():
             item = {"pileid": key, "queue": value}
