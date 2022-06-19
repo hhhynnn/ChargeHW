@@ -364,8 +364,11 @@ def user_show_pre_wait_cnt():
     wait = schedule_contr.wait_infos[waitid]
     mode = wait.mode
     if wait.state == 'p':
-        len_wait = schedule_contr.queue_wait[mode].index(wait)
-        cnt = len_wait + WAIT_QUEUE_LEN
+        len_p = schedule_contr.queue_wait[mode].index(wait)
+        len_wait = 0
+        for pileid, queue in schedule_contr.queue[mode].items():
+            len_wait += len(queue)
+        cnt = len_p + len_wait
     elif wait.state == 'wait':
         pileid = wait.pileid
         cnt = schedule_contr.queue[mode][pileid].index(wait)
