@@ -622,7 +622,7 @@ def show_queue_info():
 
     # 参数 >>>
     # <<< 参数
-    now = time.time()
+    now = get_time()
     data_raw = defaultdict(list)
     for mode in ['T', 'F']:
         for pileid, queue in schedule_contr.queue[mode].items():
