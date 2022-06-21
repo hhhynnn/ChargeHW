@@ -51,7 +51,7 @@ def hello_world():  # put application's code here
 ############################################################
 @app.route('/UserRegister', methods=['POST'])
 def user_register():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
