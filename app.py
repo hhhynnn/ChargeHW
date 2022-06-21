@@ -64,8 +64,8 @@ def user_register():
     code = user_contr.user_register(uid, passwd, capacity)
     if code == 1:
         return dict_to_json({"code": 1, "msg": 'uid already exists', "data": {}})
-    elif passwd in (None, 'None'):
-        return dict_to_json({"code": 2, "msg": "passwd can't be null/None/'None'", "data": {}})
+    elif passwd in (None,):
+        return dict_to_json({"code": 2, "msg": "passwd can't be null", "data": {}})
     else:
         msg = 'success'
     return dict_to_json({"code": code, "msg": msg, "data": {}})
