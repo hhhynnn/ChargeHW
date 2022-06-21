@@ -203,6 +203,8 @@ def user_modify_charge():
     waitid = user_contr.uid_to_waitid[uid]
     # schedule_controller 处理数据
     waitid = schedule_contr.modify_charge_request(waitid, mode, reserve)
+    # user_controller 处理数据
+    user_contr.uid_to_waitid[uid] = waitid
     code = 0
     msg = f"success"
     return dict_to_json({"code": code, "msg": msg, "data": {"waitid": waitid}})
