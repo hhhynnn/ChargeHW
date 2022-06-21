@@ -3,12 +3,14 @@ import sqlite3
 from config import *
 from collections import defaultdict
 import time
-import datetime
+from datetime import datetime, timedelta
+
+START_TIME = time.time()
 
 
 def timestamp(now: time = None):
     if now is None:
-        now = time.time()
+        now = get_time()
     return time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(now))
 
 
@@ -19,7 +21,7 @@ def timestamp_add(time_str, seconds):
 def timestamp_to_seconds(time_str):
     """只支持一种格式: '%Y-%m-%d %H:%M:%S'"""
     pattern = '%Y-%m-%d %H:%M:%S'
-    return time.mktime(datetime.datetime.strptime(time_str, pattern).timetuple())
+    return time.mktime(datetime.strptime(time_str, pattern).timetuple())
 
 
 def HMS_to_seconds(time_str):
@@ -32,6 +34,13 @@ def seconds_to_HMS(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
 
 
+def get_time() -> float:
+    delta = time.time() - START_TIME
+    delta *= TIME_RULER
+    now = START_TIME + delta
+    return now
+
+
 def get_cost(start: str, end: str, mode: str) -> [float, float]:
     '''
     计算收费结果
@@ -42,7 +51,6 @@ def get_cost(start: str, end: str, mode: str) -> [float, float]:
 
     :return:服务费cost_serve，电费cost_charge
     '''
-    from datetime import datetime, timedelta
     start = datetime.strptime(start, '%Y-%m-%d %H:%M:%S')
     end = datetime.strptime(end, '%Y-%m-%d %H:%M:%S')
     delta = end - start
@@ -351,7 +359,7 @@ class scheduler:
         """根据csid找到charge_statement对象(只保存需要更新的详单,不保存已结束的详单)"""
         self.wait_infos = {}
         """根据waitid找到wait_info对象"""
-        self.last_update_time = time.time()
+        self.last_update_time = get_time()
 
         for mode in ['F', 'T']:
             for pileid in PILEID[mode]:
@@ -508,7 +516,7 @@ class scheduler:
         """更新排队队列"""
         # 更新时间
         pre = self.last_update_time
-        now = time.time()
+        now = get_time()
         self.last_update_time = now
 
         def get_available_pileid(mode):

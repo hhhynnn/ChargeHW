@@ -20,7 +20,7 @@ CHG_ZONE = [([0, 7], 'L'), ([7, 10], 'N'), ([10, 15], 'H'), ([15, 18], 'N'),
 SERVE_RATE = 0.8
 """服务费率（°）"""
 
-SCHEDULE_MODE = 'flood'
+SCHEDULE_MODE = 'default'
 """
 调度策略, 可选 default/flood/
 
@@ -35,3 +35,4 @@ FAILOVER_MODE = 'priority'
 priority: 优先级调度
 shuffle:  时间顺序调度
 """
+TIME_RULER = 10
