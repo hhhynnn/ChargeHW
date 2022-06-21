@@ -241,6 +241,18 @@ class charge_statement:
             insert()
         else:
             update()
+
+        # 更新 user_to_charge_stmt
+        c.execute(f"""
+            select csid from user_to_charge_stmt
+            where uid = '{self.uid}'
+        """)
+        csid_list = [x[0] for x in c.fetchall()]
+        if self.csid not in csid_list:
+            c.execute(f"""
+                insert into user_to_charge_stmt (uid, csid) values
+                ('{self.uid}','{self.csid}')
+            """)
         conn.commit()
         conn.close()
 
@@ -733,6 +745,7 @@ class scheduler:
         # 让这个仁兄停止充电
         head_stmt = self.wait_to_stmt(head)
         head_stmt.end_chg_at(timestamp(now))
+        head_stmt.save()
         # 修改 wait
         head.reserve -= head_stmt.consume
         head.already = 0
@@ -740,11 +753,17 @@ class scheduler:
         new_stmt = charge_statement.new_charge_statement(head)
         self.charge_stmts[new_stmt.csid] = new_stmt
         self.waitid_to_csid[head.waitid] = new_stmt.csid
+        self.charge_stmts[new_stmt.csid] = new_stmt
+        new_stmt.save()
 
         if FAILOVER_MODE == 'priority':
             for wait in queue[::-1]:
                 wait.state = 'p'
                 wait.pileid = None
+                # 修改stmt
+                stmt = self.wait_to_stmt(wait)
+                stmt.pileid = None
+                stmt.save()
                 self.queue_wait[mode].insert(0, wait)
         elif FAILOVER_MODE == 'shuffle':
             # 混为一个编队
@@ -759,6 +778,7 @@ class scheduler:
                 stmt = self.wait_to_stmt(wait)
                 stmt.pileid = None
                 self.queue_wait[mode].insert(0, wait)
+                stmt.save()
         self.refresh_system()
 
     ##############################
@@ -881,9 +901,8 @@ class user_controller:
     def get_user_all_csid(self, uid):
         if uid not in self.uid_to_csid:
             return []
-        else:
-            csid_list = self.uid_to_csid[uid]
-            return csid_list
+        csid_list = self.uid_to_csid[uid]
+        return csid_list
 
     def get_user(self, uid) -> user_info:
         return self.users[uid]
@@ -961,3 +980,16 @@ class user_controller:
             if uid not in self.uid_to_waitid:
                 continue
             self.uid_to_waitid.pop(uid)
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute(f"""
+            select uid,csid from user_to_charge_stmt
+        """)
+        uid_to_csid_tuples = c.fetchall()
+        conn.commit()
+        conn.close()
+        for uid, csid in uid_to_csid_tuples:
+            if uid not in self.uid_to_csid:
+                self.uid_to_csid[uid] = [csid, ]
+            elif csid not in self.uid_to_csid[uid]:
+                self.uid_to_csid[uid].append(csid)
