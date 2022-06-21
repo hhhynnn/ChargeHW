@@ -596,7 +596,7 @@ class scheduler:
                 #      seq => {'T#1': list(wait_info), 'T#2':list(wait_info),...}
                 ##############################
                 def make_seq(pileid_list, wait_list):
-                    # todo: 根据充电桩号 和 等待类计算最优排队序列
+                    """根据充电桩号 和 等待类计算最优排队序列"""
                     wait_list.sort(key=lambda x: float(x.reserve))  # 按预约充电量从小到大排序
                     seq_index = []  # 索引, 用来填排队顺序
                     # for pile_id in pileid_list:
@@ -692,7 +692,8 @@ class scheduler:
         # 叫号
         call_wait()
         # update_queue()
-        return end_list
+        end_stmt_list = [self.wait_to_stmt(x) for x in end_list]
+        return end_list, end_stmt_list
 
     ##############################
     # 用户结束充电
@@ -709,9 +710,8 @@ class scheduler:
         # 1. 修改该wait的详单信息
         wait.state = 'end'
         stmt.end_chg_at(timestamp(self.last_update_time))
-        wait.already = (HMS_to_seconds(stmt.time_total) / 3600) * CHG_SPEED[wait.mode]
-        stmt.finish = 'True'
         stmt.save()
+        wait.already = (HMS_to_seconds(stmt.time_total) / 3600) * CHG_SPEED[wait.mode]
 
         # 2. 更新队列（下一个车进行充电）
         queue = self.queue[wait.mode][wait.pileid]
@@ -733,7 +733,7 @@ class scheduler:
     #     ② 时间顺序调度: 充电区中未充电的车辆合并为一组
     ##############################
     def stop_charge_pile(self, pileid):
-        """ 暂停使用某个充电桩 """
+        """ 暂停使用某个充电桩, 返回已结束的详单"""
         self.refresh_system()
         now = self.last_update_time
         mode = pileid[0]
@@ -780,6 +780,7 @@ class scheduler:
                 self.queue_wait[mode].insert(0, wait)
                 stmt.save()
         self.refresh_system()
+        return head_stmt
 
     ##############################
     # 恢复使用某个充电桩
@@ -973,23 +974,31 @@ class user_controller:
         self.uid_to_waitid.pop(uid)
         user = self.users[uid]
         user.cur_wait = None
+        user.save()
 
-    def refresh(self, end_wait_list):
+    def refresh(self, end_wait_list, end_stmt_list):
         for wait in end_wait_list:
             uid = wait.uid
             if uid not in self.uid_to_waitid:
                 continue
             self.uid_to_waitid.pop(uid)
+        for stmt in end_stmt_list:
+            user = self.users[stmt.uid]
+            user.balance -= (stmt.cost_charge + stmt.cost_serve)
+            user.save()
         conn = sqlite3.connect(DB_PATH)
         c = conn.cursor()
+
+        # 更新 uid_to_csid 映射
         c.execute(f"""
             select uid,csid from user_to_charge_stmt
         """)
         uid_to_csid_tuples = c.fetchall()
-        conn.commit()
-        conn.close()
         for uid, csid in uid_to_csid_tuples:
             if uid not in self.uid_to_csid:
                 self.uid_to_csid[uid] = [csid, ]
             elif csid not in self.uid_to_csid[uid]:
                 self.uid_to_csid[uid].append(csid)
+
+        conn.commit()
+        conn.close()

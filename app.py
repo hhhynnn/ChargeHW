@@ -83,7 +83,7 @@ def user_register():
 ############################################################
 @app.route('/UserLogin', methods=['POST'])
 def user_login():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -120,7 +120,7 @@ def user_login():
 ############################################################
 @app.route('/UserNewCharge', methods=['POST'])
 def user_new_charge():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -149,6 +149,11 @@ def user_new_charge():
         return dict_to_json({"code": 4,
                              "msg": f'wait area is full, refuse to get new request',
                              "data": {}})
+    if user.balance <= 0:
+        return dict_to_json({"code": 5,
+                             "msg": f'user has no money, refuse to get new request',
+                             "data": {}})
+
     capacity = user.capacity
     code = 0
     msg = 'success'
@@ -177,7 +182,7 @@ def user_new_charge():
 ############################################################
 @app.route('/UserModifyCharge', methods=['POST'])
 def user_modify_charge():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -245,7 +250,7 @@ def user_modify_charge():
 ############################################################
 @app.route('/UserCheckCharge', methods=['POST'])
 def user_check_charge():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -275,7 +280,7 @@ def user_check_charge():
 ############################################################
 @app.route('/UserCancelCharge', methods=['POST'])
 def user_cancel_charge():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -320,7 +325,7 @@ def user_cancel_charge():
 ############################################################
 @app.route('/UserShowWaitid', methods=['POST'])
 def user_show_waitid():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -351,7 +356,7 @@ def user_show_waitid():
 ############################################################
 @app.route('/UserShowPreWaitCnt', methods=['POST'])
 def user_show_pre_wait_cnt():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -392,7 +397,7 @@ def user_show_pre_wait_cnt():
 ############################################################
 @app.route('/UserEndCharge', methods=['POST'])
 def user_end_charge():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -410,6 +415,9 @@ def user_end_charge():
     # schedule_controller 处理数据
     schedule_contr.user_end_charge(waitid)
     # user_controller 处理数据
+    stmt = schedule_contr.wait_to_stmt(wait)
+    cost = stmt.cost_charge + stmt.cost_serve  # 收费
+    user_contr.users[uid].balance -= cost
     user_contr.user_end_charge(uid)
     return dict_to_json({"code": 0, "msg": "success", "data": {}})
 
@@ -430,7 +438,7 @@ def user_end_charge():
 ############################################################
 @app.route('/UserAddBalance', methods=['POST'])
 def user_add_balance():
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -469,7 +477,7 @@ def user_add_balance():
 @app.route('/AdminStartPile', methods=['POST'])
 def admin_start_pile():
     """管理员开启充电桩 """
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -501,7 +509,7 @@ def admin_start_pile():
 @app.route('/AdminStopPile', methods=['POST'])
 def admin_stop_pile():
     """管理员关闭充电桩 """
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -515,7 +523,11 @@ def admin_stop_pile():
     if pileid not in schedule_contr.queue[mode]:
         return dict_to_json({"code": 2, "msg": "pile already stop", "data": {}})
 
-    schedule_contr.stop_charge_pile(pileid)
+    stmt = schedule_contr.stop_charge_pile(pileid)
+    user = user_contr.users[stmt.uid]
+    cost = stmt.cost_charge + stmt.cost_serve
+    user.balance -= cost
+    user.save()
     return dict_to_json({"code": 0, "msg": "success", "data": {}})
 
 
@@ -556,7 +568,7 @@ def admin_stop_pile():
 @app.route('/ShowPileInfo', methods=['POST'])
 def show_pile_info():
     """查看充电桩状态"""
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     # requestData = json.loads(request.get_data().decode('utf-8'))
 
@@ -618,7 +630,7 @@ def show_pile_info():
 @app.route('/ShowQueueInfo', methods=['POST'])
 def show_queue_info():
     """查看充电桩队列信息"""
-    user_contr.refresh(schedule_contr.refresh_system())
+    user_contr.refresh(*schedule_contr.refresh_system())
 
     # requestData = json.loads(request.get_data().decode('utf-8'))
 
