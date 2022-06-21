@@ -40,7 +40,7 @@ def create_charge_stmt():
             time_end TEXT NULL,
             time_total TEXT NULL,
             
-            consume TEXT NULL,
+            consume FLOAT NULL,
             
             cost_charge FLOAT NULL,
             cost_serve FLOAT NULL,
