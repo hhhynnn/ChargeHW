@@ -463,6 +463,41 @@ def user_add_balance():
     return dict_to_json({"code": 0, "msg": "success", "data": {"money": cur_money}})
 
 
+############################################################
+# 中止充电
+# 合并了取消充电和结束差点
+############################################################
+@app.route('/UserEndChargePro', methods=['POST'])
+def user_end_charge_pro():
+    user_contr.refresh(*schedule_contr.refresh_system())
+
+    requestData = json.loads(request.get_data().decode('utf-8'))
+
+    # 参数 >>>
+    uid = requestData['uid']
+    # <<< 参数
+    if uid not in user_contr.uid_to_waitid:
+        return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+
+    waitid = user_contr.uid_to_waitid[uid]
+    csid = schedule_contr.waitid_to_csid[waitid]
+    wait = schedule_contr.wait_infos[waitid]
+    if wait.state == 'end':
+        return dict_to_json({"code": 2, "msg": "user's wait already end", "data": {}})
+
+    if wait.state == 'ing':
+        schedule_contr.user_end_charge(waitid)
+        stmt = schedule_contr.wait_to_stmt(wait)
+        cost = stmt.cost_charge + stmt.cost_serve
+        user_contr.users[uid].balance -= cost
+        user_contr.user_end_charge(uid)
+        return dict_to_json({"code": 0, "msg": "success", "data": {}})
+
+    schedule_contr.cancel_charge_request(waitid)
+    user_contr.cancel_charge_request(uid, csid)
+    return dict_to_json({"code": 0, "msg": "success", "data": {}})
+
+
 ################################################################################
 # 管理员客户端功能
 # 1. 开启充电桩
