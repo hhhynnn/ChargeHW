@@ -190,8 +190,8 @@ def user_modify_charge():
 
     # 参数 >>>
     uid = requestData['uid']
-    mode = requestData['mode']
-    reserve = requestData['reserve']
+    mode = requestData['mode'] if 'mode' in requestData else None
+    reserve = requestData['reserve'] if 'reserve' in requestData else None
     # <<< 参数
 
     schedule_contr.refresh_system()
@@ -369,7 +369,7 @@ def user_show_pre_wait_cnt():
     requestData = json.loads(request.get_data().decode('utf-8'))
 
     # 参数 >>>
-    uid = requestData['uid']
+    uid = requestData['uid'] if requestData['uid'] != '' else None
     # <<< 参数
     if uid is None:
         return dict_to_json({"code": 0, "msg": "success", "data": {"cnt": schedule_contr.get_wait_cnt()}})
