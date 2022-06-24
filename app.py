@@ -205,6 +205,9 @@ def user_modify_charge():
     if mode is None:
         # 传入 null 作为 mode 值时, 不更改充电模式
         mode = wait.mode
+    if reserve is None:
+        reserve = wait.reserve
+
     if wait.state != 'p':
         return dict_to_json({"code": 2,
                              "msg": f"wait's state is '{wait.state}', refuse modify",
