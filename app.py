@@ -191,7 +191,7 @@ def user_modify_charge():
     # 参数 >>>
     uid = requestData['uid']
     mode = requestData['mode']
-    reserve = float(requestData['reserve'])
+    reserve = requestData['reserve']
     # <<< 参数
 
     schedule_contr.refresh_system()
