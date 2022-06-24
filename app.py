@@ -365,6 +365,8 @@ def user_show_pre_wait_cnt():
     # 参数 >>>
     uid = requestData['uid']
     # <<< 参数
+    if uid is None:
+        return dict_to_json({"code": 0, "msg": "success", "data": {"cnt": schedule_contr.get_wait_cnt()}})
 
     if uid not in user_contr.uid_to_waitid:
         return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})

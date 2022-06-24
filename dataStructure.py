@@ -423,6 +423,14 @@ class scheduler:
     def get_wait_area_size(self):
         return WAIT_QUEUE_LEN
 
+    def get_wait_cnt(self):
+        cnt = 0
+        for mode in ['T', 'F']:
+            for pileid, queue in self.queue[mode].items():
+                cnt += len(queue)
+            cnt += len(self.queue_wait[mode])
+        return cnt
+
     ##############################
     # 新增充电请求
     # 参数: mode充电模式, reserve充电时长
