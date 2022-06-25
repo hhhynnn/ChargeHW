@@ -271,7 +271,7 @@ def user_check_charge():
         data = {"stmts": []}
     else:
         csid_list = user_contr.get_user_all_csid(uid)
-        csid_list = list(set(csid_list)) # 去重, 虽然我也不知道为什么会重复
+        csid_list = list(set(csid_list))  # 去重, 虽然我也不知道为什么会重复
         stmt_list = [schedule_contr.charge_stmts[csid] for csid in csid_list]
         data = {"stmts": [stmt.toDict() for stmt in stmt_list]}
     return dict_to_json({"code": 0, "msg": "success", "data": data})
@@ -418,12 +418,15 @@ def user_end_charge():
     # <<< 参数
 
     if uid not in user_contr.uid_to_waitid:
-        return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+        if uid not in user_contr.uid_to_csid:
+            return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+        else:
+            return dict_to_json({"code": 2, "msg": f"user's wait already end", "data": {}})
 
     waitid = user_contr.uid_to_waitid[uid]
     wait = schedule_contr.wait_infos[waitid]
     if wait.state != 'ing':
-        return dict_to_json({"code": 2, "msg": f"wait state<{wait.state}>!='ing, can't end_charge", "data": {}})
+        return dict_to_json({"code": 3, "msg": f"wait.state==<{wait.state}>, can't end", "data": {}})
     # schedule_controller 处理数据
     schedule_contr.user_end_charge(waitid)
     # user_controller 处理数据
@@ -479,13 +482,14 @@ def user_end_charge_pro():
     uid = requestData['uid']
     # <<< 参数
     if uid not in user_contr.uid_to_waitid:
-        return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+        if len(user_contr.uid_to_csid[uid]) == 0:
+            return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+        else:
+            return dict_to_json({"code": 2, "msg": "user's wait already end", "data": {}})
 
     waitid = user_contr.uid_to_waitid[uid]
     csid = schedule_contr.waitid_to_csid[waitid]
     wait = schedule_contr.wait_infos[waitid]
-    if wait.state == 'end':
-        return dict_to_json({"code": 2, "msg": "user's wait already end", "data": {}})
 
     if wait.state == 'ing':
         schedule_contr.user_end_charge(waitid)
