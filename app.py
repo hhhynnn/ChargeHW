@@ -276,7 +276,7 @@ def user_check_charge():
         # 输出时按csid升序排序
         stmt_toDict_list = [stmt.toDict() for stmt in stmt_list]
         stmt_toDict_list.sort(key=lambda x: x['csid'], reverse=True)
-    return dict_to_json({"code": 0, "msg": "success", "data": stmt_toDict_list})
+    return dict_to_json({"code": 0, "msg": "success", "data": {"stmts": stmt_toDict_list}})
 
 
 ############################################################
