@@ -5,8 +5,6 @@ from collections import defaultdict
 import time
 from datetime import datetime, timedelta
 
-START_TIME = time.time()
-
 
 def timestamp(now: time = None):
     if now is None:
@@ -32,6 +30,10 @@ def HMS_to_seconds(time_str):
 
 def seconds_to_HMS(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
+
+
+if START_TIME is None:
+    START_TIME = time.time()
 
 
 def get_time() -> float:
@@ -424,6 +426,7 @@ class scheduler:
 
     def get_wait_area_size(self, ):
         # 永久性改变方案
+        print(self.victim, WAIT_QUEUE_LEN + len(self.victim))
         return WAIT_QUEUE_LEN + len(self.victim)
 
     def get_wait_cnt(self):

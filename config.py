@@ -36,3 +36,4 @@ priority: 优先级调度
 shuffle:  时间顺序调度
 """
 TIME_RULER = 10
+START_TIME = None
