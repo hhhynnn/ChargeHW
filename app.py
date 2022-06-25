@@ -2,6 +2,7 @@ import json
 import sqlite3
 import time
 from dataStructure import *
+import requests
 
 from flask import Flask, request
 
@@ -710,7 +711,86 @@ def show_queue_info():
             item = {"pileid": key, "queue": value}
             data.append(item)
 
+        for mode in ['T', 'F']:
+            for pileid in schedule_contr.queue[mode].keys():
+                if pileid in data_raw:
+                    data.append({"pileid": pileid, "queue": data_raw[pileid]})
+                else:
+                    data.append({"pileid": pileid, "queue": []})
+
     return dict_to_json({"code": 0, "msg": "success", "data": data})
+
+
+############################################################
+# 管理员设置充电桩参数
+############################################################
+
+@app.route('/AdminSetPile', methods=['POST'])
+def admin_set_pile():
+    user_contr.refresh(*schedule_contr.refresh_system())
+
+    requestData = json.loads(request.get_data().decode('utf-8'))
+
+    global QUEUE_LEN, FAILOVER_MODE
+
+    # 参数 >>>
+    try:
+        queue_len = requestData['queue_len']
+    except KeyError:
+        queue_len = QUEUE_LEN
+
+    try:
+        failover_mode = requestData['failover_mode']
+    except KeyError:
+        failover_mode = FAILOVER_MODE
+
+    # <<< 参数
+
+    if queue_len <= 0:
+        return dict_to_json({"code": 1, "msg": "refuse to set queue_len <= 0",
+                             "data": {}})
+
+    if failover_mode not in ['priority','shuffle']:
+        return dict_to_json({"code": 2, "msg": f"failover_mode <{failover_mode}> not in ('priority','shuffle')",
+                             "data": {}})
+
+
+    QUEUE_LEN = queue_len
+    FAILOVER_MODE = failover_mode
+
+    return dict_to_json({"code": 0, "msg": "success",
+                         "data": {'F': list(schedule_contr.queue['F'].keys()),
+                                  'T': list(schedule_contr.queue['T'].keys())}})
+
+
+############################################################
+# 管理员设置等待区长度
+############################################################
+@app.route('/AdminSetWait', methods=['POST'])
+def admin_set_wait():
+    user_contr.refresh(*schedule_contr.refresh_system())
+
+    requestData = json.loads(request.get_data().decode('utf-8'))
+
+    global WAIT_QUEUE_LEN
+
+    # 参数 >>>
+    try:
+        wait_queue_len = requestData['wait_queue_len']
+    except KeyError:
+        wait_queue_len = WAIT_QUEUE_LEN
+    # <<< 参数
+
+    if wait_queue_len <= 0:
+        return dict_to_json({"code": 1, "msg": "refust to set wait_queue_len <= 0",
+                             "data": {}})
+
+
+    WAIT_QUEUE_LEN = wait_queue_len
+
+    return dict_to_json({"code": 0, "msg": "success",
+                         "data": {'F': list(schedule_contr.queue['F'].keys()),
+                                  'T': list(schedule_contr.queue['T'].keys())}})
 
 
 if __name__ == '__main__':
