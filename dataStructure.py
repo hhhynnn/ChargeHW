@@ -426,7 +426,6 @@ class scheduler:
 
     def get_wait_area_size(self, ):
         # 永久性改变方案
-        print(self.victim, WAIT_QUEUE_LEN + len(self.victim))
         return WAIT_QUEUE_LEN + len(self.victim)
 
     def get_wait_cnt(self):
@@ -708,10 +707,10 @@ class scheduler:
         # update_queue()
         end_stmt_list = [self.wait_to_stmt(x) for x in end_list]
         # 更新victim
-        wait_waitid = self.queue_wait['F'] + self.queue_wait['T']
-        for victim_waitid in self.victim:
-            if victim_waitid not in wait_waitid:
-                self.victim.remove(victim_waitid)
+        wait_wait = self.queue_wait['F'] + self.queue_wait['T']
+        for victim_wait in self.victim:
+            if victim_wait not in wait_wait:
+                self.victim.remove(victim_wait)
 
         return end_list, end_stmt_list
 
@@ -758,7 +757,7 @@ class scheduler:
         now = self.last_update_time
         mode = pileid[0]
         queue = self.queue[mode][pileid]
-        self.victim = queue.copy()
+        self.victim.extend(queue)  # 更新 victim, 元素是 wait
         self.queue[mode].pop(pileid)  # 清空一个队列
         if len(queue) == 0:
             return

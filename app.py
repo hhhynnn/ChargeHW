@@ -690,6 +690,7 @@ def show_queue_info():
         for pileid, queue in schedule_contr.queue[mode].items():
             wait_time_left_tmp = 0
             for seq, wait in enumerate(queue):
+                # 计算每个wait需要打印的数据
                 if seq == 0:
                     stmt = schedule_contr.wait_to_stmt(wait)
                     wait_already = timestamp_to_seconds(stmt.time_start) - timestamp_to_seconds(wait.request_time)
@@ -705,9 +706,15 @@ def show_queue_info():
             wait_already = now - timestamp_to_seconds(wait.request_time)
             wait_left = wait_time_left_tmp
             wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
-            data_raw[f"{mode}#wait"].append(
-                {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
-                 "wait_already": wait_already, "wait_left": wait_left})
+            if wait in schedule_contr.victim:
+                # victim 单独列出来
+                data_raw[f"{mode}#victim"].append(
+                    {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
+                     "wait_already": wait_already, "wait_left": wait_left})
+            else:
+                data_raw[f"{mode}#wait"].append(
+                    {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
+                     "wait_already": wait_already, "wait_left": wait_left})
         data = []
         for key, value in data_raw.items():
             item = {"pileid": key, "queue": value}
@@ -722,6 +729,10 @@ def show_queue_info():
         data.append({"pileid": 'F#wait', "queue": []})
     if 'T#wait' not in occurance:
         data.append({"pileid": 'T#wait', "queue": []})
+    if 'T#victim' not in occurance:
+        data.append({"pileid": 'T#victim', "queue": []})
+    if 'F#victim' not in occurance:
+        data.append({"pileid": 'F#victim', "queue": []})
     return dict_to_json({"code": 0, "msg": "success", "data": data})
 
 
