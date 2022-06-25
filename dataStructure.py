@@ -34,12 +34,13 @@ def seconds_to_HMS(seconds):
 
 if START_TIME is None:
     START_TIME = time.time()
+    SYSTEM_TIME = timestamp_to_seconds('2022-06-25 06:00:00')
 
 
 def get_time() -> float:
     delta = time.time() - START_TIME
     delta *= TIME_RULER
-    now = START_TIME + delta
+    now = SYSTEM_TIME + delta
     return now
 
 
