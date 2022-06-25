@@ -692,8 +692,8 @@ def show_queue_info():
             wait_time_left_tmp = 0
             for seq, wait in enumerate(queue):
                 # 计算每个wait需要打印的数据
+                stmt = schedule_contr.wait_to_stmt(wait)
                 if seq == 0:
-                    stmt = schedule_contr.wait_to_stmt(wait)
                     wait_already = timestamp_to_seconds(stmt.time_start) - timestamp_to_seconds(wait.request_time)
                 else:
                     wait_already = now - timestamp_to_seconds(wait.request_time)
@@ -701,7 +701,8 @@ def show_queue_info():
                 wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
                 data_raw[pileid].append(
                     {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
-                     "wait_already": wait_already, "wait_left": wait_left})
+                     "wait_already": wait_already, "wait_left": wait_left,
+                     "cost": stmt.cost_charge + stmt.cost_serve, "charge": stmt.consume})
         wait_time_left_tmp = 0
         for seq, wait in enumerate(schedule_contr.queue_wait[mode]):
             wait_already = now - timestamp_to_seconds(wait.request_time)
