@@ -273,8 +273,10 @@ def user_check_charge():
         csid_list = user_contr.get_user_all_csid(uid)
         csid_list = list(set(csid_list))  # 去重, 虽然我也不知道为什么会重复
         stmt_list = [schedule_contr.charge_stmts[csid] for csid in csid_list]
-        data = {"stmts": [stmt.toDict() for stmt in stmt_list]}
-    return dict_to_json({"code": 0, "msg": "success", "data": data})
+        # 输出时按csid升序排序
+        stmt_toDict_list = [stmt.toDict() for stmt in stmt_list]
+        stmt_toDict_list.sort(key=lambda x: x['csid'])
+    return dict_to_json({"code": 0, "msg": "success", "data": stmt_toDict_list})
 
 
 ############################################################
