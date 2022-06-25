@@ -135,6 +135,7 @@ class charge_statement:
 
     def cont_chg_at(self, time_cont):
         """传入正在充电的某个时间点, 更新表单"""
+        # time_cont 是时间戳
         start_sec = timestamp_to_seconds(self.time_start)
         cont_sec = timestamp_to_seconds(time_cont)
         delta_sec = cont_sec - start_sec
@@ -671,7 +672,7 @@ class scheduler:
                     while timeline < timediff and len(queue) > 0:
                         charger = queue[0]
                         stmt = self.wait_to_stmt(charger)
-                        need_power = charger.reserve - charger.already
+                        need_power = max(charger.reserve - charger.already, 0)
                         """还需要的充电量, 单位“度”"""
                         need_time = int(need_power / CHG_SPEED[mode] * 3600)
                         # 20s 内能充完, 直接判定可以结束
@@ -756,10 +757,13 @@ class scheduler:
     def stop_charge_pile(self, pileid):
         """ 暂停使用某个充电桩, 返回已结束的详单"""
         self.refresh_system()
-        now = self.last_update_time
+        # now = self.last_update_time
+        now = get_time()
+        print(f"*debug# last_refresh={timestamp(self.last_update_time)}, var 'now'={timestamp(now)}")
         mode = pileid[0]
         queue = self.queue[mode][pileid]
         self.victim.extend(queue)  # 更新 victim, 元素是 wait
+        print(f"*debug# victim={self.victim}")
         self.queue[mode].pop(pileid)  # 清空一个队列
         if len(queue) == 0:
             return
