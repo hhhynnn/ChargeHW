@@ -43,7 +43,7 @@ def hello_world():  # put application's code here
 #         "passwd": "password",
 #         "capacity": 200       # 车辆电池总容量
 #     }
-# 返回值:{
+# 返回值{
 #         "code":0,        # 成功时返回0, 失败返回非0
 #         "msg":"success", # 成功时返回 success, 失败时返回错误原因
 #         "data":{}
@@ -271,6 +271,7 @@ def user_check_charge():
         data = {"stmts": []}
     else:
         csid_list = user_contr.get_user_all_csid(uid)
+        csid_list = list(set(csid_list)) # 去重, 虽然我也不知道为什么会重复
         stmt_list = [schedule_contr.charge_stmts[csid] for csid in csid_list]
         data = {"stmts": [stmt.toDict() for stmt in stmt_list]}
     return dict_to_json({"code": 0, "msg": "success", "data": data})
