@@ -150,10 +150,13 @@ def user_new_charge():
     wait_area_cnt = schedule_contr.get_wait_area_cnt()
     if SCHEDULE_MODE == 'default' and wait_area_cnt >= schedule_contr.get_wait_area_size():
         # 等待区已满
-        last_wait = schedule_contr.queue_wait[mode][-1]
+        if len(schedule_contr.queue_wait[mode]) == 0:
+            charge_area_available = 1
+        else:
+            charge_area_available = 0
+
         # 检测mode的充电桩是否有空位
-        charge_area_available = 0
-        for pileid, queue in schedule_contr.queue[mode]:
+        for pileid, queue in schedule_contr.queue[mode].items():
             if len(queue) < QUEUE_LEN:
                 charge_area_available = 1
                 break
