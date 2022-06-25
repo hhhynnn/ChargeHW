@@ -372,6 +372,8 @@ class scheduler:
         self.wait_infos = {}
         """根据waitid找到wait_info对象"""
         self.last_update_time = get_time()
+        self.victim = []
+        """由于充电桩故障导致需要重新排队的人员名单"""
 
         for mode in ['F', 'T']:
             for pileid in PILEID[mode]:
@@ -421,10 +423,8 @@ class scheduler:
         return cnt
 
     def get_wait_area_size(self, ):
-        logic_wait_area = 0
-        for mode in ['T', 'F']:
-            logic_wait_area += (len(PILEID[mode]) - len(self.queue[mode].keys())) * QUEUE_LEN
-        return WAIT_QUEUE_LEN + logic_wait_area
+        # 永久性改变方案
+        return WAIT_QUEUE_LEN + len(self.victim)
 
     def get_wait_cnt(self):
         cnt = 0
@@ -704,6 +704,12 @@ class scheduler:
         call_wait()
         # update_queue()
         end_stmt_list = [self.wait_to_stmt(x) for x in end_list]
+        # 更新victim
+        wait_waitid = self.queue_wait['F'] + self.queue_wait['T']
+        for victim_waitid in self.victim:
+            if victim_waitid not in wait_waitid:
+                self.victim.remove(victim_waitid)
+
         return end_list, end_stmt_list
 
     ##############################
@@ -749,6 +755,7 @@ class scheduler:
         now = self.last_update_time
         mode = pileid[0]
         queue = self.queue[mode][pileid]
+        self.victim = queue.copy()
         self.queue[mode].pop(pileid)  # 清空一个队列
         if len(queue) == 0:
             return
