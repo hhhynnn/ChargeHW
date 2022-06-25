@@ -684,6 +684,7 @@ def show_queue_info():
     # <<< 参数
     now = get_time()
     data_raw = defaultdict(list)
+    occurance = set()
     for mode in ['T', 'F']:
         for pileid, queue in schedule_contr.queue[mode].items():
             wait_time_left_tmp = 0
@@ -710,14 +711,16 @@ def show_queue_info():
         for key, value in data_raw.items():
             item = {"pileid": key, "queue": value}
             data.append(item)
-
-        for mode in ['T', 'F']:
-            for pileid in schedule_contr.queue[mode].keys():
-                if pileid in data_raw:
-                    data.append({"pileid": pileid, "queue": data_raw[pileid]})
-                else:
-                    data.append({"pileid": pileid, "queue": []})
-
+            occurance.add(key)
+    for _, ls in PILEID.items():
+        for pile in ls:
+            if pile not in occurance:
+                data.append({"pileid": pile, "queue": []})
+                occurance.add(pile)
+    if 'F#wait' not in occurance:
+        data.append({"pileid": 'F#wait', "queue": []})
+    if 'T#wait' not in occurance:
+        data.append({"pileid": 'T#wait', "queue": []})
     return dict_to_json({"code": 0, "msg": "success", "data": data})
 
 
