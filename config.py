@@ -37,3 +37,4 @@ shuffle:  时间顺序调度
 """
 TIME_RULER = 10
 START_TIME = None
+SYSTEM_TIME = None
