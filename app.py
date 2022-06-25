@@ -570,10 +570,11 @@ def admin_stop_pile():
         return dict_to_json({"code": 2, "msg": "pile already stop", "data": {}})
 
     stmt = schedule_contr.stop_charge_pile(pileid)
-    user = user_contr.users[stmt.uid]
-    cost = stmt.cost_charge + stmt.cost_serve
-    user.balance -= cost
-    user.save()
+    if stmt is not None:
+        user = user_contr.users[stmt.uid]
+        cost = stmt.cost_charge + stmt.cost_serve
+        user.balance -= cost
+        user.save()
     return dict_to_json({"code": 0, "msg": "success", "data": {}})
 
 
