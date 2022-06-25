@@ -420,8 +420,12 @@ class scheduler:
             cnt += len(queue)
         return cnt
 
-    def get_wait_area_size(self):
-        return WAIT_QUEUE_LEN
+    def get_wait_area_size(self, ):
+        logic_wait_area = 0
+        for mode in ['T', 'F']:
+            logic_wait_area += (len(PILEID[mode]) - len(self.queue[mode].keys())) * QUEUE_LEN
+        print(logic_wait_area,WAIT_QUEUE_LEN + logic_wait_area)
+        return WAIT_QUEUE_LEN + logic_wait_area
 
     def get_wait_cnt(self):
         cnt = 0
