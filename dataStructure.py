@@ -424,7 +424,6 @@ class scheduler:
         logic_wait_area = 0
         for mode in ['T', 'F']:
             logic_wait_area += (len(PILEID[mode]) - len(self.queue[mode].keys())) * QUEUE_LEN
-        print(logic_wait_area,WAIT_QUEUE_LEN + logic_wait_area)
         return WAIT_QUEUE_LEN + logic_wait_area
 
     def get_wait_cnt(self):
