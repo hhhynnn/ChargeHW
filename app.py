@@ -149,9 +149,19 @@ def user_new_charge():
                              "data": {}})
     wait_area_cnt = schedule_contr.get_wait_area_cnt()
     if SCHEDULE_MODE == 'default' and wait_area_cnt >= schedule_contr.get_wait_area_size():
-        return dict_to_json({"code": 4,
-                             "msg": f'wait area is full, refuse to get new request',
-                             "data": {}})
+        # 等待区已满
+        last_wait = schedule_contr.queue_wait[mode][-1]
+        # 检测mode的充电桩是否有空位
+        charge_area_available = 0
+        for pileid, queue in schedule_contr.queue[mode]:
+            if len(queue) < QUEUE_LEN:
+                charge_area_available = 1
+                break
+        if not charge_area_available:
+            # 充电区已满
+            return dict_to_json({"code": 4,
+                                 "msg": f'wait area is full, refuse to get new request',
+                                 "data": {}})
     if user.balance <= 0:
         return dict_to_json({"code": 5,
                              "msg": f'user has no money, refuse to get new request',
