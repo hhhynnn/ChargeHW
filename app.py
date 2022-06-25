@@ -148,7 +148,7 @@ def user_new_charge():
                              "msg": f'user {uid} has already reserved a charge',
                              "data": {}})
     wait_area_cnt = schedule_contr.get_wait_area_cnt()
-    if SCHEDULE_MODE == 'default' and wait_area_cnt >= WAIT_QUEUE_LEN:
+    if SCHEDULE_MODE == 'default' and wait_area_cnt >= schedule_contr.get_wait_area_size():
         return dict_to_json({"code": 4,
                              "msg": f'wait area is full, refuse to get new request',
                              "data": {}})
@@ -750,10 +750,9 @@ def admin_set_pile():
         return dict_to_json({"code": 1, "msg": "refuse to set queue_len <= 0",
                              "data": {}})
 
-    if failover_mode not in ['priority','shuffle']:
+    if failover_mode not in ['priority', 'shuffle']:
         return dict_to_json({"code": 2, "msg": f"failover_mode <{failover_mode}> not in ('priority','shuffle')",
                              "data": {}})
-
 
     QUEUE_LEN = queue_len
     FAILOVER_MODE = failover_mode
@@ -784,7 +783,6 @@ def admin_set_wait():
     if wait_queue_len <= 0:
         return dict_to_json({"code": 1, "msg": "refust to set wait_queue_len <= 0",
                              "data": {}})
-
 
     WAIT_QUEUE_LEN = wait_queue_len
 
