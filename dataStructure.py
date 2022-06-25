@@ -34,7 +34,7 @@ def seconds_to_HMS(seconds):
 
 if START_TIME is None:
     START_TIME = time.time()
-    SYSTEM_TIME = timestamp_to_seconds('2022-06-25 06:00:00')
+    SYSTEM_TIME = timestamp_to_seconds('2022-06-25 05:50:00')
 
 
 def get_time() -> float:
@@ -674,7 +674,8 @@ class scheduler:
                         need_power = charger.reserve - charger.already
                         """还需要的充电量, 单位“度”"""
                         need_time = int(need_power / CHG_SPEED[mode] * 3600)
-                        if need_time < timediff - timeline:
+                        # 20s 内能充完, 直接判定可以结束
+                        if need_time - 20 < timediff - timeline:
                             timeline += need_time
                             # 直接充满
                             end_wait_list.append(charger)
