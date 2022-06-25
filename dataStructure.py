@@ -5,15 +5,6 @@ from collections import defaultdict
 import time
 from datetime import datetime, timedelta
 
-START_TIME = time.time()
-
-
-def get_time() -> float:
-    delta = time.time() - START_TIME
-    delta *= TIME_RULER
-    now = START_TIME + delta
-    return now
-
 
 def timestamp(now: time = None):
     if now is None:
@@ -39,6 +30,17 @@ def HMS_to_seconds(time_str):
 
 def seconds_to_HMS(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
+
+
+if START_TIME is None:
+    START_TIME = time.time()
+
+
+def get_time() -> float:
+    delta = time.time() - START_TIME
+    delta *= TIME_RULER
+    now = START_TIME + delta
+    return now
 
 
 def get_cost(start: str, end: str, mode: str) -> [float, float]:
@@ -424,6 +426,7 @@ class scheduler:
 
     def get_wait_area_size(self, ):
         # 永久性改变方案
+        print(self.victim, WAIT_QUEUE_LEN + len(self.victim))
         return WAIT_QUEUE_LEN + len(self.victim)
 
     def get_wait_cnt(self):
@@ -671,8 +674,7 @@ class scheduler:
                         need_power = charger.reserve - charger.already
                         """还需要的充电量, 单位“度”"""
                         need_time = int(need_power / CHG_SPEED[mode] * 3600)
-                        # 20s 内能充完, 直接判定可以结束
-                        if need_time - 20 < timediff - timeline:
+                        if need_time < timediff - timeline:
                             timeline += need_time
                             # 直接充满
                             end_wait_list.append(charger)
