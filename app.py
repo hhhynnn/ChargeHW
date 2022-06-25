@@ -298,26 +298,20 @@ def user_cancel_charge():
     uid = requestData['uid']
     # <<< 参数
     if uid not in user_contr.uid_to_waitid:
-        code = 1
-        msg = "user has no charge to cancel"
-    else:
-        waitid = user_contr.uid_to_waitid[uid]
-        csid = schedule_contr.waitid_to_csid[waitid]
-        # schedule_controller 处理数据
-        code = schedule_contr.cancel_charge_request(waitid)
-        if code != 0:
-            if code == 1:
-                msg = "this wait is charging now, can't cancel"
-            elif code == 2:
-                msg = "this wait is end now, can't cancel"
-            else:
-                msg = "unknown error"
-            return dict_to_json({"code": code, "msg": msg, "data": {}})
+        if uid not in user_contr.uid_to_csid:
+            return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
+        else:
+            return dict_to_json({"code": 2, "msg": "user's wait already end, can't cancel", "data": {}})
+    waitid = user_contr.uid_to_waitid[uid]
+    csid = schedule_contr.waitid_to_csid[waitid]
+    # schedule_controller 处理数据
+    code = schedule_contr.cancel_charge_request(waitid)
+    if code != 0:
+        return dict_to_json({"code": 3, "msg": "this wait is charging now, can't cancel", "data": {}})
 
-        # user_controller 处理数据
-        user_contr.cancel_charge_request(uid, csid)
-        msg = "success"
-    return dict_to_json({"code": code, "msg": msg, "data": {}})
+    # user_controller 处理数据
+    user_contr.cancel_charge_request(uid, csid)
+    return dict_to_json({"code": 0, "msg": "success", "data": {}})
 
 
 ############################################################
@@ -482,7 +476,7 @@ def user_end_charge_pro():
     uid = requestData['uid']
     # <<< 参数
     if uid not in user_contr.uid_to_waitid:
-        if len(user_contr.uid_to_csid[uid]) == 0:
+        if uid not in user_contr.uid_to_csid:
             return dict_to_json({"code": 1, "msg": "user has no wait", "data": {}})
         else:
             return dict_to_json({"code": 2, "msg": "user's wait already end", "data": {}})
