@@ -709,7 +709,7 @@ def show_queue_info():
             wait_time_left_tmp += (wait.reserve - wait.already) / CHG_SPEED[mode] * 3600
             if wait in schedule_contr.victim:
                 # victim 单独列出来
-                data_raw[f"{mode}#victim"].append(
+                data_raw[f"{wait.mode}#victim"].append(
                     {"uid": wait.uid, "waitid": wait.waitid, "capacity": wait.capacity, "reserve": wait.reserve,
                      "wait_already": wait_already, "wait_left": wait_left})
             else:
